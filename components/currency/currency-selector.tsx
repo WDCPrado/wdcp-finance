@@ -30,18 +30,18 @@ export default function CurrencySelector({
   const selectorComponent = (
     <div className={`space-y-3 ${className}`}>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Moneda</label>
+        <label className="text-sm font-medium text-foreground">Moneda</label>
         <Select value={currency} onValueChange={handleCurrencyChange}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full bg-background border-border">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-background border-border">
             {Object.entries(SUPPORTED_CURRENCIES).map(([code, config]) => (
-              <SelectItem key={code} value={code}>
+              <SelectItem key={code} value={code} className="text-foreground">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{config.symbol}</span>
                   <span>{config.name}</span>
-                  <span className="text-gray-500">({config.code})</span>
+                  <span className="text-muted-foreground">({config.code})</span>
                 </div>
               </SelectItem>
             ))}
@@ -49,9 +49,9 @@ export default function CurrencySelector({
         </Select>
       </div>
 
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-muted-foreground">
         <span className="font-medium">Formato de ejemplo:</span>
-        <div className="mt-1 p-2 bg-gray-50 rounded border">
+        <div className="mt-1 p-2 bg-muted rounded border border-border text-foreground">
           {formatCurrency({ amount: 1234567.89 })}
         </div>
       </div>

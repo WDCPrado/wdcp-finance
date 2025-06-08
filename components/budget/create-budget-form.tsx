@@ -161,7 +161,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded">
               {error}
             </div>
           )}
@@ -178,38 +178,40 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
           </div>
 
           {/* Resumen */}
-          <div className="bg-slate-50 p-4 rounded-lg">
+          <div className="bg-muted p-4 rounded-lg">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-lg font-semibold text-green-600">
+                <div className="text-lg font-semibold text-primary">
                   {formatCurrency({ amount: totalIncome })}
                 </div>
-                <div className="text-sm text-gray-600">Ingreso total</div>
+                <div className="text-sm text-muted-foreground">
+                  Ingreso total
+                </div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-red-600">
+                <div className="text-lg font-semibold text-destructive">
                   {formatCurrency({ amount: totalBudgeted })}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   Gastos presupuestados
                 </div>
               </div>
               <div>
                 <div
                   className={`text-lg font-semibold ${
-                    remaining >= 0 ? "text-green-600" : "text-red-600"
+                    remaining >= 0 ? "text-primary" : "text-destructive"
                   }`}
                 >
                   {formatCurrency({ amount: remaining })}
                 </div>
-                <div className="text-sm text-gray-600">Disponible</div>
+                <div className="text-sm text-muted-foreground">Disponible</div>
               </div>
             </div>
           </div>
 
           {/* Categorías de Ingreso */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-green-600">
+            <h3 className="text-lg font-semibold text-primary">
               Categorías de Ingresos
             </h3>
 
@@ -223,7 +225,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
                 return (
                   <div
                     key={category.id}
-                    className="flex items-center gap-3 p-3 border-2 border-green-200 rounded-lg bg-green-50"
+                    className="flex items-center gap-3 p-3 border-2 border-primary rounded-lg bg-primary/5"
                   >
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-white"
@@ -235,7 +237,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
                     <div className="flex-1">
                       <div className="font-medium">{category.name}</div>
                       {category.description && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {category.description}
                         </div>
                       )}
@@ -273,7 +275,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
 
           {/* Categorías de Gastos */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-red-600">
+            <h3 className="text-lg font-semibold text-destructive">
               Categorías de Gastos
             </h3>
 
@@ -299,7 +301,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
                     <div className="flex-1">
                       <div className="font-medium">{category.name}</div>
                       {category.description && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {category.description}
                         </div>
                       )}
@@ -335,7 +337,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
             </div>
 
             {/* Agregar categoría personalizada */}
-            <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+            <div className="space-y-4 p-4 border rounded-lg bg-primary/5">
               <h4 className="font-medium">Agregar Nueva Categoría</h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

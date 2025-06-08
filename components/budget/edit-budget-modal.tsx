@@ -269,7 +269,7 @@ export default function EditBudgetModal({
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded animate-pulse">
+            <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded animate-pulse">
               {error}
             </div>
           )}
@@ -287,34 +287,34 @@ export default function EditBudgetModal({
           </div>
 
           {/* Resumen */}
-          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-2 border-border bg-muted">
             <CardContent className="pt-6">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="space-y-1">
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-primary">
                     {formatCurrency({ amount: totalIncomeFromCategories })}
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">
+                  <div className="text-sm text-muted-foreground font-medium">
                     Ingreso total
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-2xl font-bold text-red-600">
+                  <div className="text-2xl font-bold text-destructive">
                     {formatCurrency({ amount: totalBudgeted })}
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">
+                  <div className="text-sm text-muted-foreground font-medium">
                     Gastos presupuestados
                   </div>
                 </div>
                 <div className="space-y-1">
                   <div
                     className={`text-2xl font-bold ${
-                      remaining >= 0 ? "text-green-600" : "text-red-600"
+                      remaining >= 0 ? "text-primary" : "text-destructive"
                     }`}
                   >
                     {formatCurrency({ amount: remaining })}
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">
+                  <div className="text-sm text-muted-foreground font-medium">
                     Disponible
                   </div>
                 </div>
@@ -325,7 +325,7 @@ export default function EditBudgetModal({
           {/* Categorías de Ingresos */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-green-600 flex items-center gap-2">
+              <CardTitle className="text-primary flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
                 Categorías de Ingresos
               </CardTitle>
@@ -341,7 +341,7 @@ export default function EditBudgetModal({
                 return (
                   <div
                     key={category.id}
-                    className="grid grid-cols-12 gap-3 p-4 border-2 border-green-200 rounded-lg bg-green-50 transition-all duration-300 hover:shadow-md"
+                    className="grid grid-cols-12 gap-3 p-4 border-2 border-border rounded-lg bg-muted transition-all duration-300 hover:shadow-md"
                   >
                     {/* Icono */}
                     <div className="col-span-1 flex items-center">
@@ -355,7 +355,7 @@ export default function EditBudgetModal({
 
                     {/* Nombre */}
                     <div className="col-span-3">
-                      <Label className="text-xs text-green-700 font-medium">
+                      <Label className="text-xs text-primary font-medium">
                         Nombre
                       </Label>
                       <Input
@@ -374,7 +374,7 @@ export default function EditBudgetModal({
 
                     {/* Descripción */}
                     <div className="col-span-3">
-                      <Label className="text-xs text-green-700 font-medium">
+                      <Label className="text-xs text-primary font-medium">
                         Descripción
                       </Label>
                       <Input
@@ -393,7 +393,7 @@ export default function EditBudgetModal({
 
                     {/* Presupuesto */}
                     <div className="col-span-2">
-                      <Label className="text-xs text-green-700 font-medium">
+                      <Label className="text-xs text-primary font-medium">
                         Presupuesto
                       </Label>
                       <CurrencyInput
@@ -410,7 +410,7 @@ export default function EditBudgetModal({
 
                     {/* Icono Selector */}
                     <div className="col-span-2">
-                      <Label className="text-xs text-green-700 font-medium">
+                      <Label className="text-xs text-primary font-medium">
                         Icono
                       </Label>
                       <IconSelector
@@ -428,7 +428,7 @@ export default function EditBudgetModal({
 
                     {/* Acciones */}
                     <div className="col-span-1 flex flex-col gap-1">
-                      <Label className="text-xs text-green-700 font-medium">
+                      <Label className="text-xs text-primary font-medium">
                         Acciones
                       </Label>
                       {category.budgetAmount > 0 && (
@@ -437,7 +437,7 @@ export default function EditBudgetModal({
                           size="sm"
                           onClick={() => handleCompleteIncome(category.id)}
                           disabled={isCompleting}
-                          className={`bg-green-600 hover:bg-green-700 transition-all duration-300 ${
+                          className={`bg-primary hover:bg-primary/80 transition-all duration-300 ${
                             isCompleting ? "animate-pulse scale-105" : ""
                           }`}
                         >
@@ -456,7 +456,7 @@ export default function EditBudgetModal({
                           removeCategory({ categoryId: category.id })
                         }
                         disabled={categories.length <= 1}
-                        className="hover:bg-red-50 hover:border-red-300"
+                        className="hover:bg-destructive/10 hover:border-destructive/30"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -470,7 +470,7 @@ export default function EditBudgetModal({
           {/* Categorías de Gastos */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-red-600 flex items-center gap-2">
+              <CardTitle className="text-destructive flex items-center gap-2">
                 <Trash2 className="h-5 w-5" />
                 Categorías de Gastos
               </CardTitle>
@@ -485,7 +485,7 @@ export default function EditBudgetModal({
                 return (
                   <div
                     key={category.id}
-                    className="grid grid-cols-12 gap-3 p-4 border rounded-lg transition-all duration-300 hover:shadow-md hover:border-gray-300"
+                    className="grid grid-cols-12 gap-3 p-4 border rounded-lg transition-all duration-300 hover:shadow-md hover:border-border"
                   >
                     {/* Icono */}
                     <div className="col-span-1 flex items-center">
@@ -499,7 +499,7 @@ export default function EditBudgetModal({
 
                     {/* Nombre */}
                     <div className="col-span-3">
-                      <Label className="text-xs text-red-700 font-medium">
+                      <Label className="text-xs text-destructive font-medium">
                         Nombre
                       </Label>
                       <Input
@@ -518,7 +518,7 @@ export default function EditBudgetModal({
 
                     {/* Descripción */}
                     <div className="col-span-3">
-                      <Label className="text-xs text-red-700 font-medium">
+                      <Label className="text-xs text-destructive font-medium">
                         Descripción
                       </Label>
                       <Input
@@ -537,7 +537,7 @@ export default function EditBudgetModal({
 
                     {/* Presupuesto */}
                     <div className="col-span-2">
-                      <Label className="text-xs text-red-700 font-medium">
+                      <Label className="text-xs text-destructive font-medium">
                         Presupuesto
                       </Label>
                       <CurrencyInput
@@ -554,7 +554,7 @@ export default function EditBudgetModal({
 
                     {/* Icono Selector */}
                     <div className="col-span-2">
-                      <Label className="text-xs text-red-700 font-medium">
+                      <Label className="text-xs text-destructive font-medium">
                         Icono
                       </Label>
                       <IconSelector
@@ -572,7 +572,7 @@ export default function EditBudgetModal({
 
                     {/* Acciones */}
                     <div className="col-span-1">
-                      <Label className="text-xs text-red-700 font-medium">
+                      <Label className="text-xs text-destructive font-medium">
                         Acciones
                       </Label>
                       <Button
@@ -583,7 +583,7 @@ export default function EditBudgetModal({
                           removeCategory({ categoryId: category.id })
                         }
                         disabled={categories.length <= 1}
-                        className="w-full hover:bg-red-50 hover:border-red-300"
+                        className="w-full hover:bg-destructive/10 hover:border-destructive/30"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -628,7 +628,7 @@ export default function EditBudgetModal({
             </CardHeader>
 
             {showAddCategory && (
-              <CardContent className="space-y-4 border-t bg-gray-50">
+              <CardContent className="space-y-4 border-t bg-muted">
                 <div className="grid grid-cols-12 gap-3 p-4">
                   {/* Nombre */}
                   <div className="col-span-3">

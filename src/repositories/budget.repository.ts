@@ -8,11 +8,13 @@ import {
 import { IBudgetRepository } from "../interfaces/budget-repository.interface";
 
 export class BudgetRepository implements IBudgetRepository {
-  private store = useBudgetStore.getState();
+  private getStore() {
+    return useBudgetStore.getState();
+  }
 
   // Obtener todos los presupuestos mensuales
   async getBudgets(): Promise<MonthlyBudget[]> {
-    return this.store.budgets;
+    return this.getStore().budgets;
   }
 
   // Obtener presupuesto por mes y año
@@ -23,7 +25,7 @@ export class BudgetRepository implements IBudgetRepository {
     month: number;
     year: number;
   }): Promise<MonthlyBudget | null> {
-    return this.store.getBudgetByMonth({ month, year });
+    return this.getStore().getBudgetByMonth({ month, year });
   }
 
   // Crear presupuesto mensual
@@ -40,7 +42,7 @@ export class BudgetRepository implements IBudgetRepository {
     totalIncome: number;
     categories: Category[];
   }): Promise<MonthlyBudget> {
-    return this.store.createMonthlyBudget({
+    return this.getStore().createMonthlyBudget({
       name,
       month,
       year,
@@ -57,7 +59,7 @@ export class BudgetRepository implements IBudgetRepository {
     month: number;
     year: number;
   }): Promise<MonthlyBudget | null> {
-    return this.store.createFromPreviousMonth({ month, year });
+    return this.getStore().createFromPreviousMonth({ month, year });
   }
 
   // Actualizar presupuesto mensual
@@ -68,12 +70,12 @@ export class BudgetRepository implements IBudgetRepository {
     id: string;
     updates: Partial<MonthlyBudget>;
   }): Promise<MonthlyBudget | null> {
-    return this.store.updateMonthlyBudget({ id, updates });
+    return this.getStore().updateMonthlyBudget({ id, updates });
   }
 
   // Eliminar presupuesto
   async deleteBudget({ id }: { id: string }): Promise<boolean> {
-    return this.store.deleteBudget({ id });
+    return this.getStore().deleteBudget({ id });
   }
 
   // Agregar transacción
@@ -84,7 +86,7 @@ export class BudgetRepository implements IBudgetRepository {
     budgetId: string;
     transaction: Omit<Transaction, "id" | "budgetId">;
   }): Promise<Transaction | null> {
-    return this.store.addTransaction({ budgetId, transaction });
+    return this.getStore().addTransaction({ budgetId, transaction });
   }
 
   // Eliminar transacción
@@ -95,7 +97,7 @@ export class BudgetRepository implements IBudgetRepository {
     budgetId: string;
     transactionId: string;
   }): Promise<boolean> {
-    return this.store.deleteTransaction({ budgetId, transactionId });
+    return this.getStore().deleteTransaction({ budgetId, transactionId });
   }
 
   // Obtener resumen del presupuesto
@@ -104,12 +106,12 @@ export class BudgetRepository implements IBudgetRepository {
   }: {
     budgetId: string;
   }): Promise<BudgetSummary | null> {
-    return this.store.getBudgetSummary({ budgetId });
+    return this.getStore().getBudgetSummary({ budgetId });
   }
 
   // Obtener presupuesto actual (mes y año actual)
   async getCurrentBudget(): Promise<MonthlyBudget | null> {
-    return this.store.getCurrentBudget();
+    return this.getStore().getCurrentBudget();
   }
 }
 

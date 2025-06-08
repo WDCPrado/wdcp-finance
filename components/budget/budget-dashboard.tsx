@@ -38,6 +38,7 @@ import { useEffect, useState } from "react";
 import { container } from "@/src/di/container";
 import { useCurrency } from "@/src/hooks/useCurrency";
 import EditBudgetModal from "./edit-budget-modal";
+import { formatDate, formatDateForInput } from "@/src/utils/date";
 
 interface BudgetDashboardProps {
   budget: MonthlyBudget;
@@ -61,7 +62,7 @@ export default function BudgetDashboard({
     amount: 0,
     description: "",
     categoryId: "",
-    date: new Date().toISOString().split("T")[0],
+    date: formatDateForInput(new Date()),
   });
   const [newCategory, setNewCategory] = useState({
     name: "",
@@ -135,7 +136,7 @@ export default function BudgetDashboard({
           amount: 0,
           description: "",
           categoryId: "",
-          date: new Date().toISOString().split("T")[0],
+          date: formatDateForInput(new Date()),
         });
 
         setShowAddTransaction(false);
@@ -410,7 +411,7 @@ export default function BudgetDashboard({
     setEditTransactionData({
       amount: transaction.amount,
       description: transaction.description,
-      date: new Date(transaction.date).toISOString().split("T")[0],
+      date: formatDateForInput(transaction.date),
     });
   };
 
@@ -565,7 +566,7 @@ export default function BudgetDashboard({
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatCurrency({ amount: summary.totalIncome })}
             </div>
           </CardContent>
@@ -577,7 +578,7 @@ export default function BudgetDashboard({
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatCurrency({ amount: summary.actualIncome })}
             </div>
           </CardContent>
@@ -603,7 +604,9 @@ export default function BudgetDashboard({
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                summary.balance >= 0 ? "text-green-600" : "text-red-600"
+                summary.balance >= 0
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
               }`}
             >
               {formatCurrency({ amount: summary.balance })}
@@ -615,7 +618,7 @@ export default function BudgetDashboard({
       {/* Income Categories */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-green-600">
+          <CardTitle className="text-green-600 dark:text-green-400">
             Categorías de Ingresos
           </CardTitle>
           <CardDescription>Gestión de fuentes de ingreso</CardDescription>
@@ -639,7 +642,7 @@ export default function BudgetDashboard({
                 return (
                   <div
                     key={category.id}
-                    className="space-y-3 p-4 border-2 border-green-200 rounded-lg bg-green-50"
+                    className="space-y-3 p-4 border-2 border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-950/30"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -780,8 +783,8 @@ export default function BudgetDashboard({
                               <span
                                 className={
                                   hasCompleteIncome
-                                    ? "text-green-600 font-medium"
-                                    : "text-green-600"
+                                    ? "text-green-600 dark:text-green-400 font-medium"
+                                    : "text-green-600 dark:text-green-400"
                                 }
                               >
                                 {hasCompleteIncome ? (
@@ -908,8 +911,8 @@ export default function BudgetDashboard({
                       <span
                         className={
                           (categoryData?.remaining || 0) >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
                         }
                       >
                         {formatCurrency({
@@ -958,15 +961,14 @@ export default function BudgetDashboard({
                           {transaction.description}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {category?.name} •{" "}
-                          {new Date(transaction.date).toLocaleDateString()}
+                          {category?.name} • {formatDate(transaction.date)}
                         </div>
                       </div>
                       <div
                         className={`font-semibold ${
                           transaction.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {transaction.type === "income" ? "+" : "-"}
@@ -990,28 +992,29 @@ export default function BudgetDashboard({
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-2 sm:p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md bg-background border border-border shadow-xl rounded-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
+              <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Confirmar Eliminación
+                <span className="text-foreground">Confirmar Eliminación</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p>
+              <p className="text-foreground">
                 ¿Estás seguro de que quieres eliminar el presupuesto{" "}
                 <strong>&ldquo;{budget.name}&rdquo;</strong>?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Esta acción no se puede deshacer. Se eliminarán todas las
                 transacciones y datos asociados.
               </p>
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={isDeleting}
+                  className="w-full sm:w-auto"
                 >
                   Cancelar
                 </Button>
@@ -1019,6 +1022,7 @@ export default function BudgetDashboard({
                   variant="destructive"
                   onClick={handleDeleteBudget}
                   disabled={isDeleting}
+                  className="w-full sm:w-auto"
                 >
                   {isDeleting ? "Eliminando..." : "Eliminar"}
                 </Button>
@@ -1030,8 +1034,8 @@ export default function BudgetDashboard({
 
       {/* Add Transaction Modal */}
       {showAddTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md">
             <CardHeader>
               <CardTitle>Agregar Transacción</CardTitle>
             </CardHeader>
@@ -1163,8 +1167,8 @@ export default function BudgetDashboard({
 
       {/* Add Category Modal */}
       {showAddCategory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md">
             <CardHeader>
               <CardTitle>Agregar Categoría</CardTitle>
             </CardHeader>
@@ -1302,10 +1306,10 @@ export default function BudgetDashboard({
 
       {/* Expense Transaction Modal */}
       {showExpenseTransaction && selectedExpenseCategory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-600">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <Plus className="h-5 w-5" />
                 Registrar Gasto
               </CardTitle>
@@ -1380,7 +1384,7 @@ export default function BudgetDashboard({
                     disabled={expenseTransaction.isComplete}
                   />
                   {expenseTransaction.isComplete && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Monto completo de la categoría
                     </p>
                   )}
@@ -1404,8 +1408,10 @@ export default function BudgetDashboard({
                   />
                 </div>
 
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Resumen:</div>
+                <div className="bg-muted p-3 rounded-lg">
+                  <div className="text-sm text-muted-foreground mb-1">
+                    Resumen:
+                  </div>
                   <div className="font-medium">
                     {expenseTransaction.isComplete
                       ? "Gasto Completo"
@@ -1432,7 +1438,7 @@ export default function BudgetDashboard({
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-orange-600 hover:bg-orange-700"
+                    className="bg-primary hover:bg-primary/80"
                   >
                     Registrar Gasto
                   </Button>
@@ -1445,10 +1451,10 @@ export default function BudgetDashboard({
 
       {/* Category Transactions Modal */}
       {showCategoryTransactions && selectedTransactionCategory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-600">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <Settings className="h-5 w-5" />
                 Transacciones de{" "}
                 {
@@ -1465,8 +1471,8 @@ export default function BudgetDashboard({
               {budget.transactions.filter(
                 (t) => t.categoryId === selectedTransactionCategory
               ).length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
                   <p>No hay transacciones registradas para esta categoría</p>
                 </div>
               ) : (
@@ -1480,18 +1486,18 @@ export default function BudgetDashboard({
                     .map((transaction) => (
                       <div
                         key={transaction.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors"
                       >
                         <div className="flex-1">
                           <div className="font-medium">
                             {transaction.description}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(transaction.date).toLocaleDateString()}
+                          <div className="text-sm text-muted-foreground">
+                            {formatDate(transaction.date)}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="font-semibold text-red-600">
+                          <div className="font-semibold text-destructive">
                             -{formatCurrency({ amount: transaction.amount })}
                           </div>
                           <div className="flex gap-1">
@@ -1499,7 +1505,7 @@ export default function BudgetDashboard({
                               size="sm"
                               variant="outline"
                               onClick={() => handleEditTransaction(transaction)}
-                              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                              className="border-primary text-primary hover:bg-primary/10"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -1509,7 +1515,7 @@ export default function BudgetDashboard({
                               onClick={() =>
                                 handleDeleteTransaction(transaction.id)
                               }
-                              className="border-red-300 text-red-600 hover:bg-red-50"
+                              className="border-destructive text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1519,7 +1525,6 @@ export default function BudgetDashboard({
                     ))}
                 </div>
               )}
-
               <div className="flex justify-end mt-6">
                 <Button
                   variant="outline"
@@ -1538,8 +1543,8 @@ export default function BudgetDashboard({
 
       {/* Edit Transaction Modal */}
       {editingTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-600">
                 <Edit className="h-5 w-5" />

@@ -117,6 +117,9 @@ export default function DashboardPage() {
 
   const handleBudgetDeleted = async () => {
     // Después de eliminar, buscar otro presupuesto para mostrar
+    setIsLoading(true);
+    setError("");
+
     try {
       const allBudgets = await container.budgetRepository.getBudgets();
 
@@ -143,6 +146,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error after budget deletion:", error);
       setError("Error al cargar presupuesto después de eliminar");
+    } finally {
+      setIsLoading(false);
     }
   };
 

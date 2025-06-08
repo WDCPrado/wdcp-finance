@@ -45,11 +45,6 @@ const MONTHS = [
   "Diciembre",
 ];
 
-const YEARS = Array.from(
-  { length: 10 },
-  (_, i) => new Date().getFullYear() - 2 + i
-);
-
 const THEME_OPTIONS = [
   { value: "light", label: "Claro", icon: Sun },
   { value: "dark", label: "Oscuro", icon: Moon },
@@ -63,8 +58,6 @@ export default function MonthNavigator({
   hasCurrentBudget,
   isLoading = false,
 }: MonthNavigatorProps) {
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [showSettings, setShowSettings] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -99,97 +92,56 @@ export default function MonthNavigator({
 
   return (
     <>
+      {/* Botones de acción */}
+      <div className="flex items-center gap-2 fixed top-5 right-5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSettings(true)}
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Configuración
+        </Button>
+      </div>
       <Card className="w-full">
         <CardContent className="py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Navegación con flechas */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePreviousMonth}
-                disabled={isLoading}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              <div className="flex items-center gap-2 px-4">
-                <Calendar className="h-5 w-5 text-gray-500" />
-                <span className="text-lg font-semibold min-w-[140px] text-center">
-                  {MONTHS[currentMonth - 1]} {currentYear}
-                </span>
+          <div className="w-full">
+            <div className="flex items-center w-full gap-2 sm:gap-4">
+              {/* Flecha Izquierda */}
+              <div className="flex-1 flex justify-start">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousMonth}
+                  disabled={isLoading}
+                  className="sm:w-12 w-10"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
               </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextMonth}
-                disabled={isLoading}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Selectores directos */}
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedMonth}
-                onValueChange={(value) => {
-                  setSelectedMonth(value);
-                  const month = parseInt(value);
-                  const year = parseInt(selectedYear);
-                  onMonthChange({ month, year });
-                }}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((month, index) => (
-                    <SelectItem key={index + 1} value={(index + 1).toString()}>
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={selectedYear}
-                onValueChange={(value) => {
-                  setSelectedYear(value);
-                  const month = parseInt(selectedMonth);
-                  const year = parseInt(value);
-                  onMonthChange({ month, year });
-                }}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="flex items-center gap-2 fixed top-5 right-5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSettings(true)}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Configuración
-              </Button>
+              {/* Mes/Año */}
+              <div className="flex-1 flex justify-center">
+                <div className="flex items-center gap-2 px-2 sm:px-4">
+                  <Calendar className="h-5 w-5 text-gray-500" />
+                  <span className="text-lg font-semibold min-w-[100px] text-center">
+                    {MONTHS[currentMonth - 1]} {currentYear}
+                  </span>
+                </div>
+              </div>
+              {/* Flecha Derecha */}
+              <div className="flex-1 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextMonth}
+                  disabled={isLoading}
+                  className="sm:w-12 w-10"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
-
           {/* Indicador de estado */}
           <div className="mt-3 text-center">
             {isLoading ? (
@@ -209,12 +161,14 @@ export default function MonthNavigator({
 
       {/* Modal de Configuración */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-lg bg-background border border-border">
             <CardContent className="pt-6">
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">Configuración</h2>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Configuración
+                  </h2>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -229,19 +183,25 @@ export default function MonthNavigator({
 
                 {/* Configuración de Tema */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium">Tema</label>
+                  <label className="text-sm font-medium text-foreground">
+                    Tema
+                  </label>
                   <Select
                     value={mounted ? theme : "system"}
                     onValueChange={setTheme}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full bg-background border-border">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-background border-border">
                       {THEME_OPTIONS.map((option) => {
                         const IconComponent = option.icon;
                         return (
-                          <SelectItem key={option.value} value={option.value}>
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="text-foreground"
+                          >
                             <div className="flex items-center gap-2">
                               <IconComponent className="h-4 w-4" />
                               <span>{option.label}</span>
