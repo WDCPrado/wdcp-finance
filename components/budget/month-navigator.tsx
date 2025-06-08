@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Calendar, Settings } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Settings,
+  Monitor,
+  Sun,
+  Moon,
+} from "lucide-react";
 import CurrencySelector from "../currency/currency-selector";
+import { useTheme } from "next-themes";
 
 interface MonthNavigatorProps {
   currentMonth: number;
@@ -41,6 +50,12 @@ const YEARS = Array.from(
   (_, i) => new Date().getFullYear() - 2 + i
 );
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Oscuro", icon: Moon },
+  { value: "system", label: "Sistema", icon: Monitor },
+];
+
 export default function MonthNavigator({
   currentMonth,
   currentYear,
@@ -51,6 +66,12 @@ export default function MonthNavigator({
   const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [showSettings, setShowSettings] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePreviousMonth = () => {
     let newMonth = currentMonth - 1;
@@ -189,9 +210,9 @@ export default function MonthNavigator({
       {/* Modal de Configuración */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+          <Card className="w-full max-w-lg">
             <CardContent className="pt-6">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Configuración</h2>
                   <Button
@@ -203,7 +224,34 @@ export default function MonthNavigator({
                   </Button>
                 </div>
 
+                {/* Configuración de Moneda */}
                 <CurrencySelector showCard={false} />
+
+                {/* Configuración de Tema */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Tema</label>
+                  <Select
+                    value={mounted ? theme : "system"}
+                    onValueChange={setTheme}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {THEME_OPTIONS.map((option) => {
+                        const IconComponent = option.icon;
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <IconComponent className="h-4 w-4" />
+                              <span>{option.label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <div className="flex justify-end">
                   <Button onClick={() => setShowSettings(false)}>Cerrar</Button>
