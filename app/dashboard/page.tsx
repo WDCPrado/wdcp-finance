@@ -6,6 +6,8 @@ import { MonthlyBudget } from "@/src/types/budget";
 import CreateBudgetForm from "@/components/budget/create-budget-form";
 import BudgetDashboard from "@/components/budget/budget-dashboard";
 import MonthNavigator from "@/components/budget/month-navigator";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const now = new Date();
@@ -175,6 +177,31 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="fixed top-5 left-5">
+        <Link
+          href="https://github.com/WDCPrado/wdcp-finance"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button variant="outline" className="flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={18}
+              height={18}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="lucide lucide-github"
+            >
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 4 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8 18.13V22" />
+            </svg>
+            GitHub
+          </Button>
+        </Link>
+      </div>
       {/* Navegador de meses */}
       <MonthNavigator
         currentMonth={currentMonth}
