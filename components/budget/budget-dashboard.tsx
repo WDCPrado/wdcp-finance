@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { IconSelector, ICON_COMPONENTS } from "@/components/ui/icon-selector";
 import { BudgetSummary, MonthlyBudget, Category } from "@/src/types/budget";
 import { isIncomeCategory, type IconName } from "@/src/constants/categories";
@@ -39,6 +40,7 @@ import { container } from "@/src/di/container";
 import { useCurrency } from "@/src/hooks/useCurrency";
 import EditBudgetModal from "./edit-budget-modal";
 import { formatDate, formatDateForInput } from "@/src/utils/date";
+import { toast } from "sonner";
 
 interface BudgetDashboardProps {
   budget: MonthlyBudget;
@@ -97,6 +99,9 @@ export default function BudgetDashboard({
     description: "",
     date: "",
   });
+  const [showDeleteTransactionDialog, setShowDeleteTransactionDialog] =
+    useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<string>("");
 
   const { formatCurrency } = useCurrency();
 
@@ -144,14 +149,20 @@ export default function BudgetDashboard({
         loadSummary();
 
         if (result.warnings && result.warnings.length > 0) {
-          alert("Advertencias:\n" + result.warnings.join("\n"));
+          toast.warning("Advertencias", {
+            description: result.warnings.join("\n"),
+          });
         }
       } else {
-        alert("Error: " + result.error);
+        toast.error("Error al agregar transacción", {
+          description: result.error,
+        });
       }
     } catch (error) {
       console.error("Error adding transaction:", error);
-      alert("Error inesperado al agregar la transacción");
+      toast.error("Error inesperado", {
+        description: "Error al agregar la transacción",
+      });
     }
   };
 
@@ -192,7 +203,9 @@ export default function BudgetDashboard({
       loadSummary();
     } catch (error) {
       console.error("Error adding category:", error);
-      alert("Error inesperado al agregar la categoría");
+      toast.error("Error inesperado", {
+        description: "Error al agregar la categoría",
+      });
     }
   };
 
@@ -224,7 +237,7 @@ export default function BudgetDashboard({
       loadSummary();
     } catch (error) {
       console.error("Error updating category:", error);
-      alert("Error al actualizar la categoría");
+      toast.error("Error al actualizar la categoría");
     }
   };
 
@@ -242,7 +255,9 @@ export default function BudgetDashboard({
     );
 
     if (existingCompleteIncome) {
-      alert("Ya se registró el ingreso completo para esta categoría");
+      toast.info("Ingreso ya registrado", {
+        description: "Ya se registró el ingreso completo para esta categoría",
+      });
       return;
     }
 
@@ -262,17 +277,23 @@ export default function BudgetDashboard({
         loadSummary();
 
         // Mostrar mensaje de éxito
-        alert("¡Ingreso registrado exitosamente!");
+        toast.success("¡Ingreso registrado exitosamente!");
 
         if (result.warnings && result.warnings.length > 0) {
-          alert("Advertencias:\n" + result.warnings.join("\n"));
+          toast.warning("Advertencias", {
+            description: result.warnings.join("\n"),
+          });
         }
       } else {
-        alert("Error: " + result.error);
+        toast.error("Error al registrar ingreso", {
+          description: result.error,
+        });
       }
     } catch (error) {
       console.error("Error completing income payment:", error);
-      alert("Error inesperado al completar el ingreso");
+      toast.error("Error inesperado", {
+        description: "Error al completar el ingreso",
+      });
     }
   };
 
@@ -290,7 +311,7 @@ export default function BudgetDashboard({
     );
 
     if (!completeIncomeTransaction) {
-      alert("No se encontró el ingreso completo para eliminar");
+      toast.error("No se encontró el ingreso completo para eliminar");
       return;
     }
 
@@ -314,10 +335,12 @@ export default function BudgetDashboard({
       onBudgetUpdated();
       loadSummary();
 
-      alert("Ingreso completo eliminado exitosamente");
+      toast.success("Ingreso completo eliminado exitosamente");
     } catch (error) {
       console.error("Error removing complete income:", error);
-      alert("Error inesperado al eliminar el ingreso");
+      toast.error("Error inesperado", {
+        description: "Error al eliminar el ingreso",
+      });
     }
   };
 
@@ -343,12 +366,12 @@ export default function BudgetDashboard({
     if (!category) return;
 
     if (expenseTransaction.amount <= 0) {
-      alert("El monto debe ser mayor a 0");
+      toast.error("El monto debe ser mayor a 0");
       return;
     }
 
     if (!expenseTransaction.description.trim()) {
-      alert("Debe agregar una descripción");
+      toast.error("Debe agregar una descripción");
       return;
     }
 
@@ -373,17 +396,23 @@ export default function BudgetDashboard({
         });
         setSelectedExpenseCategory("");
 
-        alert("¡Gasto registrado exitosamente!");
+        toast.success("¡Gasto registrado exitosamente!");
 
         if (result.warnings && result.warnings.length > 0) {
-          alert("Advertencias:\n" + result.warnings.join("\n"));
+          toast.warning("Advertencias", {
+            description: result.warnings.join("\n"),
+          });
         }
       } else {
-        alert("Error: " + result.error);
+        toast.error("Error al registrar gasto", {
+          description: result.error,
+        });
       }
     } catch (error) {
       console.error("Error adding expense transaction:", error);
-      alert("Error inesperado al agregar el gasto");
+      toast.error("Error inesperado", {
+        description: "Error al agregar el gasto",
+      });
     }
   };
 
@@ -419,12 +448,12 @@ export default function BudgetDashboard({
     if (!editingTransaction) return;
 
     if (editTransactionData.amount <= 0) {
-      alert("El monto debe ser mayor a 0");
+      toast.error("El monto debe ser mayor a 0");
       return;
     }
 
     if (!editTransactionData.description.trim()) {
-      alert("Debe agregar una descripción");
+      toast.error("Debe agregar una descripción");
       return;
     }
 
@@ -448,22 +477,26 @@ export default function BudgetDashboard({
       onBudgetUpdated();
       loadSummary();
       setEditingTransaction(null);
-      alert("Transacción actualizada exitosamente");
+      toast.success("Transacción actualizada exitosamente");
     } catch (error) {
       console.error("Error updating transaction:", error);
-      alert("Error inesperado al actualizar la transacción");
+      toast.error("Error inesperado", {
+        description: "Error al actualizar la transacción",
+      });
     }
   };
 
-  const handleDeleteTransaction = async (transactionId: string) => {
-    const confirmDelete = confirm(
-      "¿Estás seguro de eliminar esta transacción?"
-    );
-    if (!confirmDelete) return;
+  const handleDeleteTransaction = (transactionId: string) => {
+    setTransactionToDelete(transactionId);
+    setShowDeleteTransactionDialog(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
 
     try {
       const updatedTransactions = budget.transactions.filter(
-        (t) => t.id !== transactionId
+        (t) => t.id !== transactionToDelete
       );
 
       await container.budgetRepository.updateMonthlyBudget({
@@ -473,10 +506,14 @@ export default function BudgetDashboard({
 
       onBudgetUpdated();
       loadSummary();
-      alert("Transacción eliminada exitosamente");
+      toast.success("Transacción eliminada exitosamente");
+      setShowDeleteTransactionDialog(false);
+      setTransactionToDelete("");
     } catch (error) {
       console.error("Error deleting transaction:", error);
-      alert("Error inesperado al eliminar la transacción");
+      toast.error("Error inesperado", {
+        description: "Error al eliminar la transacción",
+      });
     }
   };
 
@@ -492,11 +529,15 @@ export default function BudgetDashboard({
         setShowDeleteConfirm(false);
         onBudgetDeleted?.();
       } else {
-        alert("Error: " + result.error);
+        toast.error("Error al eliminar presupuesto", {
+          description: result.error,
+        });
       }
     } catch (error) {
       console.error("Error deleting budget:", error);
-      alert("Error inesperado al eliminar el presupuesto");
+      toast.error("Error inesperado", {
+        description: "Error al eliminar el presupuesto",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -1635,6 +1676,47 @@ export default function BudgetDashboard({
                     Actualizar
                   </Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Transaction Confirmation Dialog */}
+      {showDeleteTransactionDialog && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-xs sm:max-w-md bg-background border border-border shadow-xl rounded-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                <span className="text-foreground">Confirmar Eliminación</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-foreground">
+                ¿Estás seguro de que quieres eliminar esta transacción?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteTransactionDialog(false);
+                    setTransactionToDelete("");
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDeleteTransaction}
+                  className="w-full sm:w-auto"
+                >
+                  Eliminar
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -29,14 +29,7 @@ import {
   type IconName,
 } from "@/src/constants/categories";
 import { useCurrency } from "@/src/hooks/useCurrency";
-import {
-  Plus,
-  Trash2,
-  Save,
-  CheckCircle,
-  DollarSign,
-  Sparkles,
-} from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, Sparkles } from "lucide-react";
 
 interface EditBudgetModalProps {
   budget: MonthlyBudget;
@@ -64,8 +57,6 @@ export default function EditBudgetModal({
     icon: "DollarSign" as IconName,
     type: "expense" as "income" | "expense",
   });
-  const [completingIncome, setCompletingIncome] = useState<string>("");
-
   // Use currency hook
   const { formatCurrency } = useCurrency();
 
@@ -105,42 +96,6 @@ export default function EditBudgetModal({
         cat.id === categoryId ? { ...cat, [field]: value } : cat
       )
     );
-  };
-
-  const handleCompleteIncome = async (categoryId: string) => {
-    setCompletingIncome(categoryId);
-
-    const category = categories.find((c) => c.id === categoryId);
-    if (!category || category.budgetAmount === 0) {
-      setCompletingIncome("");
-      return;
-    }
-
-    try {
-      // Crear transacción de ingreso por el monto completo de la categoría
-      const result = await container.addTransactionUseCase.execute({
-        budgetId: budget.id,
-        type: "income",
-        amount: category.budgetAmount,
-        description: `Ingreso completo - ${category.name}`,
-        categoryId: categoryId,
-        date: new Date(),
-      });
-
-      if (result.success) {
-        onSuccess(); // Recargar el presupuesto
-        if (result.warnings && result.warnings.length > 0) {
-          alert("Advertencias:\n" + result.warnings.join("\n"));
-        }
-      } else {
-        alert("Error: " + result.error);
-      }
-    } catch (error) {
-      console.error("Error completing income:", error);
-      alert("Error inesperado al completar el ingreso");
-    } finally {
-      setTimeout(() => setCompletingIncome(""), 1000); // Animación
-    }
   };
 
   const addCategory = () => {
@@ -336,7 +291,6 @@ export default function EditBudgetModal({
                   ICON_COMPONENTS[
                     category.icon as keyof typeof ICON_COMPONENTS
                   ] || DollarSign;
-                const isCompleting = completingIncome === category.id;
 
                 return (
                   <div
@@ -431,23 +385,7 @@ export default function EditBudgetModal({
                       <Label className="text-xs text-primary font-medium">
                         Acciones
                       </Label>
-                      {category.budgetAmount > 0 && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => handleCompleteIncome(category.id)}
-                          disabled={isCompleting}
-                          className={`bg-primary hover:bg-primary/80 transition-all duration-300 ${
-                            isCompleting ? "animate-pulse scale-105" : ""
-                          }`}
-                        >
-                          {isCompleting ? (
-                            <Sparkles className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
+
                       <Button
                         type="button"
                         variant="outline"
