@@ -915,11 +915,23 @@ export default function BudgetDashboard({
                             : "text-red-600 dark:text-red-400"
                         }
                       >
-                        {formatCurrency({
-                          amount:
-                            categoryData?.remaining || category.budgetAmount,
-                        })}{" "}
-                        restante
+                        {(() => {
+                          const remaining =
+                            categoryData?.remaining ?? category.budgetAmount;
+                          const absoluteAmount = Math.abs(remaining);
+
+                          if (remaining > 0) {
+                            return `${formatCurrency({
+                              amount: absoluteAmount,
+                            })} restante`;
+                          } else if (remaining < 0) {
+                            return `${formatCurrency({
+                              amount: absoluteAmount,
+                            })} sobrepasado`;
+                          } else {
+                            return "Completado";
+                          }
+                        })()}
                       </span>
                     </div>
                   </div>
