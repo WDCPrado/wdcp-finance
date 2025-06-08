@@ -71,6 +71,31 @@ export default function BudgetDashboard({
     icon: "DollarSign" as IconName,
     type: "expense" as "income" | "expense",
   });
+  const [showExpenseTransaction, setShowExpenseTransaction] = useState(false);
+  const [selectedExpenseCategory, setSelectedExpenseCategory] =
+    useState<string>("");
+  const [expenseTransaction, setExpenseTransaction] = useState({
+    amount: 0,
+    description: "",
+    isComplete: false,
+  });
+  const [showCategoryTransactions, setShowCategoryTransactions] =
+    useState(false);
+  const [selectedTransactionCategory, setSelectedTransactionCategory] =
+    useState<string>("");
+  const [editingTransaction, setEditingTransaction] = useState<{
+    id: string;
+    amount: number;
+    description: string;
+    date: string;
+    categoryId: string;
+    type: "income" | "expense";
+  } | null>(null);
+  const [editTransactionData, setEditTransactionData] = useState({
+    amount: 0,
+    description: "",
+    date: "",
+  });
 
   const { formatCurrency } = useCurrency();
 
@@ -292,6 +317,165 @@ export default function BudgetDashboard({
     } catch (error) {
       console.error("Error removing complete income:", error);
       alert("Error inesperado al eliminar el ingreso");
+    }
+  };
+
+  const handleOpenExpenseTransaction = (categoryId: string) => {
+    const category = budget.categories.find((c) => c.id === categoryId);
+    if (!category) return;
+
+    setSelectedExpenseCategory(categoryId);
+    setExpenseTransaction({
+      amount: category.budgetAmount,
+      description: "",
+      isComplete: true,
+    });
+    setShowExpenseTransaction(true);
+  };
+
+  const handleExpenseTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const category = budget.categories.find(
+      (c) => c.id === selectedExpenseCategory
+    );
+    if (!category) return;
+
+    if (expenseTransaction.amount <= 0) {
+      alert("El monto debe ser mayor a 0");
+      return;
+    }
+
+    if (!expenseTransaction.description.trim()) {
+      alert("Debe agregar una descripción");
+      return;
+    }
+
+    try {
+      const result = await container.addTransactionUseCase.execute({
+        budgetId: budget.id,
+        type: "expense",
+        amount: expenseTransaction.amount,
+        description: expenseTransaction.description.trim(),
+        categoryId: selectedExpenseCategory,
+        date: new Date(),
+      });
+
+      if (result.success) {
+        onBudgetUpdated();
+        loadSummary();
+        setShowExpenseTransaction(false);
+        setExpenseTransaction({
+          amount: 0,
+          description: "",
+          isComplete: false,
+        });
+        setSelectedExpenseCategory("");
+
+        alert("¡Gasto registrado exitosamente!");
+
+        if (result.warnings && result.warnings.length > 0) {
+          alert("Advertencias:\n" + result.warnings.join("\n"));
+        }
+      } else {
+        alert("Error: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error adding expense transaction:", error);
+      alert("Error inesperado al agregar el gasto");
+    }
+  };
+
+  const handleViewCategoryTransactions = (categoryId: string) => {
+    setSelectedTransactionCategory(categoryId);
+    setShowCategoryTransactions(true);
+  };
+
+  const handleEditTransaction = (transaction: {
+    id: string;
+    amount: number;
+    description: string;
+    date: string | Date;
+    categoryId: string;
+    type: "income" | "expense";
+  }) => {
+    const transactionWithStringDate = {
+      ...transaction,
+      date:
+        typeof transaction.date === "string"
+          ? transaction.date
+          : transaction.date.toISOString(),
+    };
+    setEditingTransaction(transactionWithStringDate);
+    setEditTransactionData({
+      amount: transaction.amount,
+      description: transaction.description,
+      date: new Date(transaction.date).toISOString().split("T")[0],
+    });
+  };
+
+  const handleUpdateTransaction = async () => {
+    if (!editingTransaction) return;
+
+    if (editTransactionData.amount <= 0) {
+      alert("El monto debe ser mayor a 0");
+      return;
+    }
+
+    if (!editTransactionData.description.trim()) {
+      alert("Debe agregar una descripción");
+      return;
+    }
+
+    try {
+      const updatedTransactions = budget.transactions.map((t) =>
+        t.id === editingTransaction.id
+          ? {
+              ...t,
+              amount: editTransactionData.amount,
+              description: editTransactionData.description.trim(),
+              date: new Date(editTransactionData.date),
+            }
+          : t
+      );
+
+      await container.budgetRepository.updateMonthlyBudget({
+        id: budget.id,
+        updates: { transactions: updatedTransactions },
+      });
+
+      onBudgetUpdated();
+      loadSummary();
+      setEditingTransaction(null);
+      alert("Transacción actualizada exitosamente");
+    } catch (error) {
+      console.error("Error updating transaction:", error);
+      alert("Error inesperado al actualizar la transacción");
+    }
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    const confirmDelete = confirm(
+      "¿Estás seguro de eliminar esta transacción?"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const updatedTransactions = budget.transactions.filter(
+        (t) => t.id !== transactionId
+      );
+
+      await container.budgetRepository.updateMonthlyBudget({
+        id: budget.id,
+        updates: { transactions: updatedTransactions },
+      });
+
+      onBudgetUpdated();
+      loadSummary();
+      alert("Transacción eliminada exitosamente");
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      alert("Error inesperado al eliminar la transacción");
     }
   };
 
@@ -660,13 +844,44 @@ export default function BudgetDashboard({
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">{category.name}</span>
-                          <span className="text-sm text-gray-600">
-                            {formatCurrency({
-                              amount: categoryData?.spent || 0,
-                            })}{" "}
-                            /{" "}
-                            {formatCurrency({ amount: category.budgetAmount })}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">
+                              {formatCurrency({
+                                amount: categoryData?.spent || 0,
+                              })}{" "}
+                              /{" "}
+                              {formatCurrency({
+                                amount: category.budgetAmount,
+                              })}
+                            </span>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleViewCategoryTransactions(category.id)
+                                }
+                                className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-all duration-300"
+                              >
+                                <Settings className="h-4 w-4 mr-1" />
+                                Ver
+                              </Button>
+                              {category.budgetAmount > 0 &&
+                                (categoryData?.remaining ||
+                                  category.budgetAmount) > 0 && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      handleOpenExpenseTransaction(category.id)
+                                    }
+                                    className="bg-orange-600 hover:bg-orange-700 transition-all duration-300 hover:scale-105"
+                                  >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Registrar
+                                  </Button>
+                                )}
+                            </div>
+                          </div>
                         </div>
                         {category.description && (
                           <div className="text-sm text-gray-600">
@@ -1080,6 +1295,330 @@ export default function BudgetDashboard({
                   <Button type="submit">Agregar</Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Expense Transaction Modal */}
+      {showExpenseTransaction && selectedExpenseCategory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-600">
+                <Plus className="h-5 w-5" />
+                Registrar Gasto
+              </CardTitle>
+              <CardDescription>
+                {
+                  budget.categories.find(
+                    (c) => c.id === selectedExpenseCategory
+                  )?.name
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={handleExpenseTransactionSubmit}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label>Tipo de Gasto</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={
+                        expenseTransaction.isComplete ? "default" : "outline"
+                      }
+                      onClick={() => {
+                        const category = budget.categories.find(
+                          (c) => c.id === selectedExpenseCategory
+                        );
+                        setExpenseTransaction({
+                          ...expenseTransaction,
+                          isComplete: true,
+                          amount: category?.budgetAmount || 0,
+                        });
+                      }}
+                      className="flex-1"
+                    >
+                      Completo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={
+                        !expenseTransaction.isComplete ? "default" : "outline"
+                      }
+                      onClick={() =>
+                        setExpenseTransaction({
+                          ...expenseTransaction,
+                          isComplete: false,
+                          amount: 0,
+                        })
+                      }
+                      className="flex-1"
+                    >
+                      Parcial
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expense-amount">Monto</Label>
+                  <CurrencyInput
+                    id="expense-amount"
+                    value={expenseTransaction.amount}
+                    onChange={(value) =>
+                      setExpenseTransaction({
+                        ...expenseTransaction,
+                        amount: value,
+                      })
+                    }
+                    min="0"
+                    step="0.01"
+                    required
+                    disabled={expenseTransaction.isComplete}
+                  />
+                  {expenseTransaction.isComplete && (
+                    <p className="text-sm text-gray-500">
+                      Monto completo de la categoría
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expense-description">
+                    Descripción / Comentario
+                  </Label>
+                  <Input
+                    id="expense-description"
+                    value={expenseTransaction.description}
+                    onChange={(e) =>
+                      setExpenseTransaction({
+                        ...expenseTransaction,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Ej: Compra en supermercado, pago de servicio..."
+                    required
+                  />
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Resumen:</div>
+                  <div className="font-medium">
+                    {expenseTransaction.isComplete
+                      ? "Gasto Completo"
+                      : "Gasto Parcial"}
+                    : {formatCurrency({ amount: expenseTransaction.amount })}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowExpenseTransaction(false);
+                      setSelectedExpenseCategory("");
+                      setExpenseTransaction({
+                        amount: 0,
+                        description: "",
+                        isComplete: false,
+                      });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    Registrar Gasto
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Category Transactions Modal */}
+      {showCategoryTransactions && selectedTransactionCategory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-600">
+                <Settings className="h-5 w-5" />
+                Transacciones de{" "}
+                {
+                  budget.categories.find(
+                    (c) => c.id === selectedTransactionCategory
+                  )?.name
+                }
+              </CardTitle>
+              <CardDescription>
+                Ver, editar y eliminar transacciones de esta categoría
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {budget.transactions.filter(
+                (t) => t.categoryId === selectedTransactionCategory
+              ).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No hay transacciones registradas para esta categoría</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {budget.transactions
+                    .filter((t) => t.categoryId === selectedTransactionCategory)
+                    .sort(
+                      (a, b) =>
+                        new Date(b.date).getTime() - new Date(a.date).getTime()
+                    )
+                    .map((transaction) => (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">
+                            {transaction.description}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(transaction.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="font-semibold text-red-600">
+                            -{formatCurrency({ amount: transaction.amount })}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditTransaction(transaction)}
+                              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleDeleteTransaction(transaction.id)
+                              }
+                              className="border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              <div className="flex justify-end mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCategoryTransactions(false);
+                    setSelectedTransactionCategory("");
+                  }}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-600">
+                <Edit className="h-5 w-5" />
+                Editar Transacción
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Monto</Label>
+                  <CurrencyInput
+                    id="edit-amount"
+                    value={editTransactionData.amount}
+                    onChange={(value) =>
+                      setEditTransactionData({
+                        ...editTransactionData,
+                        amount: value,
+                      })
+                    }
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description">Descripción</Label>
+                  <Input
+                    id="edit-description"
+                    value={editTransactionData.description}
+                    onChange={(e) =>
+                      setEditTransactionData({
+                        ...editTransactionData,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Descripción de la transacción"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Fecha</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editTransactionData.date}
+                    onChange={(e) =>
+                      setEditTransactionData({
+                        ...editTransactionData,
+                        date: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditingTransaction(null);
+                      setEditTransactionData({
+                        amount: 0,
+                        description: "",
+                        date: "",
+                      });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleUpdateTransaction}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Actualizar
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
