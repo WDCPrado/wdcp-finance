@@ -9,7 +9,7 @@ export default function DashboardLayout({
   return (
     <Container>
       <div className="min-h-screen w-full">{children}</div>
-      <Toaster position="bottom-right" richColors expand={false} />
+      <Toaster position="bottom-center" richColors expand={false} />
     </Container>
   );
 }

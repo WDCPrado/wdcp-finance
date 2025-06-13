@@ -20,7 +20,12 @@ import {
 } from "@/components/ui/select";
 
 import { IconSelector, ICON_COMPONENTS } from "@/components/ui/icon-selector";
-import { BudgetSummary, MonthlyBudget, Category } from "@/src/types/budget";
+import {
+  BudgetSummary,
+  MonthlyBudget,
+  Category,
+  RecurrentTransaction,
+} from "@/src/types/budget";
 import { isIncomeCategory, type IconName } from "@/src/constants/categories";
 import {
   Calendar,
@@ -34,6 +39,8 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle,
+  Repeat,
+  RotateCcw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { container } from "@/src/di/container";
@@ -41,6 +48,8 @@ import { useCurrency } from "@/src/hooks/useCurrency";
 import EditBudgetModal from "./edit-budget-modal";
 import { formatDate, formatDateForInput } from "@/src/utils/date";
 import { toast } from "sonner";
+import RecurrentTransactionModal from "./recurrent-transaction-modal";
+import RecurrentTransactionsList from "./recurrent-transactions-list";
 
 interface BudgetDashboardProps {
   budget: MonthlyBudget;
@@ -102,6 +111,12 @@ export default function BudgetDashboard({
   const [showDeleteTransactionDialog, setShowDeleteTransactionDialog] =
     useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<string>("");
+
+  // Estados para transacciones recurrentes
+  const [showRecurrentModal, setShowRecurrentModal] = useState(false);
+  const [showRecurrentList, setShowRecurrentList] = useState(false);
+  const [editingRecurrentTransaction, setEditingRecurrentTransaction] =
+    useState<RecurrentTransaction | null>(null);
 
   const { formatCurrency } = useCurrency();
 
@@ -541,6 +556,27 @@ export default function BudgetDashboard({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Funciones para transacciones recurrentes
+  const handleOpenRecurrentModal = () => {
+    setEditingRecurrentTransaction(null);
+    setShowRecurrentModal(true);
+  };
+
+  const handleEditRecurrentTransaction = (
+    transaction: RecurrentTransaction
+  ) => {
+    setEditingRecurrentTransaction(transaction);
+    setShowRecurrentModal(true);
+    setShowRecurrentList(false);
+  };
+
+  const handleRecurrentSuccess = () => {
+    setShowRecurrentModal(false);
+    setEditingRecurrentTransaction(null);
+    // Recargar datos si es necesario
+    onBudgetUpdated();
   };
 
   const monthNames = [
@@ -1723,14 +1759,54 @@ export default function BudgetDashboard({
         </div>
       )}
 
-      {/* Floating Add Transaction Button */}
-      <Button
-        onClick={() => setShowAddTransaction(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 z-50"
-        size="lg"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Floating Buttons Group */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+        {/* Recurrent Transactions List Button */}
+        <Button
+          onClick={() => setShowRecurrentList(true)}
+          className="w-12 h-12 rounded-full bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          size="lg"
+          title="Ver transacciones recurrentes"
+        >
+          <RotateCcw className="h-5 w-5" />
+        </Button>
+
+        {/* Add Recurrent Transaction Button */}
+        <Button
+          onClick={handleOpenRecurrentModal}
+          className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          size="lg"
+          title="Crear transacción recurrente"
+        >
+          <Repeat className="h-5 w-5" />
+        </Button>
+
+        {/* Add Regular Transaction Button */}
+        <Button
+          onClick={() => setShowAddTransaction(true)}
+          className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          size="lg"
+          title="Agregar transacción"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Recurrent Transaction Modal */}
+      <RecurrentTransactionModal
+        isOpen={showRecurrentModal}
+        onClose={() => setShowRecurrentModal(false)}
+        budget={budget}
+        editingTransaction={editingRecurrentTransaction}
+        onSuccess={handleRecurrentSuccess}
+      />
+
+      {/* Recurrent Transactions List */}
+      <RecurrentTransactionsList
+        isOpen={showRecurrentList}
+        onClose={() => setShowRecurrentList(false)}
+        onEditTransaction={handleEditRecurrentTransaction}
+      />
     </div>
   );
 }

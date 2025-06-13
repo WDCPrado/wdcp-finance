@@ -8,6 +8,9 @@ import { GetCurrentBudgetUseCase } from "../use-cases/budget/get-current-budget.
 import { GetBudgetByMonthUseCase } from "../use-cases/budget/get-budget-by-month.use-case";
 import { DeleteBudgetUseCase } from "../use-cases/budget/delete-budget.use-case";
 import { EditBudgetUseCase } from "../use-cases/budget/edit-budget.use-case";
+import { CreateRecurrentTransactionUseCase } from "../use-cases/budget/create-recurrent-transaction.use-case";
+import { ProcessRecurrentTransactionsUseCase } from "../use-cases/budget/process-recurrent-transactions.use-case";
+import { ManageRecurrentTransactionsUseCase } from "../use-cases/budget/manage-recurrent-transactions.use-case";
 
 export class DIContainer {
   private static instance: DIContainer;
@@ -22,6 +25,9 @@ export class DIContainer {
   private readonly _getBudgetByMonthUseCase: GetBudgetByMonthUseCase;
   private readonly _deleteBudgetUseCase: DeleteBudgetUseCase;
   private readonly _editBudgetUseCase: EditBudgetUseCase;
+  private readonly _createRecurrentTransactionUseCase: CreateRecurrentTransactionUseCase;
+  private readonly _processRecurrentTransactionsUseCase: ProcessRecurrentTransactionsUseCase;
+  private readonly _manageRecurrentTransactionsUseCase: ManageRecurrentTransactionsUseCase;
 
   private constructor() {
     // Inicializar repositorios
@@ -40,6 +46,12 @@ export class DIContainer {
     );
     this._deleteBudgetUseCase = new DeleteBudgetUseCase(this._budgetRepository);
     this._editBudgetUseCase = new EditBudgetUseCase(this._budgetRepository);
+    this._createRecurrentTransactionUseCase =
+      new CreateRecurrentTransactionUseCase(this._budgetRepository);
+    this._processRecurrentTransactionsUseCase =
+      new ProcessRecurrentTransactionsUseCase(this._budgetRepository);
+    this._manageRecurrentTransactionsUseCase =
+      new ManageRecurrentTransactionsUseCase(this._budgetRepository);
   }
 
   public static getInstance(): DIContainer {
@@ -77,6 +89,18 @@ export class DIContainer {
 
   public get editBudgetUseCase(): EditBudgetUseCase {
     return this._editBudgetUseCase;
+  }
+
+  public get createRecurrentTransactionUseCase(): CreateRecurrentTransactionUseCase {
+    return this._createRecurrentTransactionUseCase;
+  }
+
+  public get processRecurrentTransactionsUseCase(): ProcessRecurrentTransactionsUseCase {
+    return this._processRecurrentTransactionsUseCase;
+  }
+
+  public get manageRecurrentTransactionsUseCase(): ManageRecurrentTransactionsUseCase {
+    return this._manageRecurrentTransactionsUseCase;
   }
 }
 

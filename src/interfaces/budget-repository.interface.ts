@@ -3,6 +3,7 @@ import {
   Transaction,
   BudgetSummary,
   Category,
+  RecurrentTransaction,
 } from "../types/budget";
 
 export interface IBudgetRepository {
@@ -81,4 +82,41 @@ export interface IBudgetRepository {
     budgetId: string;
     transactionId: string;
   }): Promise<boolean>;
+
+  // Métodos para transacciones recurrentes
+
+  // Crear transacción recurrente
+  createRecurrentTransaction({
+    recurrentTransaction,
+  }: {
+    recurrentTransaction: Omit<
+      RecurrentTransaction,
+      "id" | "createdAt" | "updatedAt"
+    >;
+  }): Promise<RecurrentTransaction>;
+
+  // Obtener todas las transacciones recurrentes
+  getRecurrentTransactions(): Promise<RecurrentTransaction[]>;
+
+  // Obtener transacciones recurrentes activas
+  getActiveRecurrentTransactions(): Promise<RecurrentTransaction[]>;
+
+  // Actualizar transacción recurrente
+  updateRecurrentTransaction({
+    id,
+    updates,
+  }: {
+    id: string;
+    updates: Partial<RecurrentTransaction>;
+  }): Promise<RecurrentTransaction | null>;
+
+  // Eliminar transacción recurrente
+  deleteRecurrentTransaction({ id }: { id: string }): Promise<boolean>;
+
+  // Obtener transacciones recurrentes que deben ejecutarse
+  getRecurrentTransactionsDue({
+    date,
+  }: {
+    date: Date;
+  }): Promise<RecurrentTransaction[]>;
 }

@@ -4,12 +4,22 @@ import {
   Transaction,
   BudgetSummary,
   Category,
+  RecurrentTransaction,
 } from "../types/budget";
 import { IBudgetRepository } from "../interfaces/budget-repository.interface";
+
+// Extensión temporal del store para incluir transacciones recurrentes
+interface ExtendedBudgetStore {
+  recurrentTransactions?: RecurrentTransaction[];
+}
 
 export class BudgetRepository implements IBudgetRepository {
   private getStore() {
     return useBudgetStore.getState();
+  }
+
+  private getExtendedStore() {
+    return useBudgetStore.getState() as unknown as ExtendedBudgetStore;
   }
 
   // Obtener todos los presupuestos mensuales
@@ -112,6 +122,121 @@ export class BudgetRepository implements IBudgetRepository {
   // Obtener presupuesto actual (mes y año actual)
   async getCurrentBudget(): Promise<MonthlyBudget | null> {
     return this.getStore().getCurrentBudget();
+  }
+
+  // Métodos para transacciones recurrentes
+
+  // Crear transacción recurrente
+  async createRecurrentTransaction({
+    recurrentTransaction,
+  }: {
+    recurrentTransaction: Omit<
+      RecurrentTransaction,
+      "id" | "createdAt" | "updatedAt"
+    >;
+  }): Promise<RecurrentTransaction> {
+    const id = crypto.randomUUID();
+    const now = new Date();
+
+    const newRecurrentTransaction: RecurrentTransaction = {
+      ...recurrentTransaction,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Simular almacenamiento en memoria (en un proyecto real iría a base de datos)
+    const store = this.getExtendedStore();
+    if (!store.recurrentTransactions) {
+      store.recurrentTransactions = [];
+    }
+    store.recurrentTransactions.push(newRecurrentTransaction);
+
+    return newRecurrentTransaction;
+  }
+
+  // Obtener todas las transacciones recurrentes
+  async getRecurrentTransactions(): Promise<RecurrentTransaction[]> {
+    const store = this.getExtendedStore();
+    return store.recurrentTransactions || [];
+  }
+
+  // Obtener transacciones recurrentes activas
+  async getActiveRecurrentTransactions(): Promise<RecurrentTransaction[]> {
+    const all = await this.getRecurrentTransactions();
+    return all.filter((rt) => rt.isActive);
+  }
+
+  // Actualizar transacción recurrente
+  async updateRecurrentTransaction({
+    id,
+    updates,
+  }: {
+    id: string;
+    updates: Partial<RecurrentTransaction>;
+  }): Promise<RecurrentTransaction | null> {
+    const store = this.getExtendedStore();
+    const recurrentTransactions = store.recurrentTransactions || [];
+
+    const index = recurrentTransactions.findIndex(
+      (rt: RecurrentTransaction) => rt.id === id
+    );
+    if (index === -1) {
+      return null;
+    }
+
+    const updated = {
+      ...recurrentTransactions[index],
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    recurrentTransactions[index] = updated;
+    return updated;
+  }
+
+  // Eliminar transacción recurrente
+  async deleteRecurrentTransaction({ id }: { id: string }): Promise<boolean> {
+    const store = this.getExtendedStore();
+    const recurrentTransactions = store.recurrentTransactions || [];
+
+    const index = recurrentTransactions.findIndex(
+      (rt: RecurrentTransaction) => rt.id === id
+    );
+    if (index === -1) {
+      return false;
+    }
+
+    recurrentTransactions.splice(index, 1);
+    return true;
+  }
+
+  // Obtener transacciones recurrentes que deben ejecutarse
+  async getRecurrentTransactionsDue({
+    date,
+  }: {
+    date: Date;
+  }): Promise<RecurrentTransaction[]> {
+    const active = await this.getActiveRecurrentTransactions();
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+
+    return active.filter((rt) => {
+      // Verificar si es momento de ejecutar
+      const nextExecution = new Date(rt.nextExecutionDate);
+      nextExecution.setHours(0, 0, 0, 0);
+
+      // Verificar que no haya pasado la fecha de fin
+      if (rt.endDate) {
+        const endDate = new Date(rt.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        if (targetDate > endDate) {
+          return false;
+        }
+      }
+
+      return targetDate >= nextExecution;
+    });
   }
 }
 

@@ -16,6 +16,25 @@ export interface Transaction {
   categoryId: string;
   date: Date;
   budgetId: string;
+  isRecurrent?: boolean;
+  recurrenceId?: string; // Para vincular transacciones del mismo grupo recurrente
+}
+
+export interface RecurrentTransaction {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  categoryId: string;
+  startDate: Date;
+  endDate?: Date; // Si no se especifica, será indefinida
+  isActive: boolean;
+  interval: "monthly" | "quarterly" | "semi-annual" | "annual" | "custom"; // 1, 3, 6, 12 meses
+  intervalValue: number; // Para personalizar: 1=mensual, 3=trimestral, 6=semestral, 12=anual
+  nextExecutionDate: Date;
+  lastExecutionDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface MonthlyBudget {
