@@ -53,15 +53,19 @@ export function useRecurrentTransactions() {
     }
   };
 
-  const processRecurrentTransactions = async (
-    targetDate?: Date
-  ): Promise<ProcessRecurrenceResponse> => {
+  const processRecurrentTransactions = async (params?: {
+    targetDate?: Date;
+    targetMonth?: number;
+    targetYear?: number;
+  }): Promise<ProcessRecurrenceResponse> => {
     setLoading(true);
     setError(null);
 
     try {
       const response = await processRecurrentTransactionsUseCase.execute({
-        targetDate,
+        targetDate: params?.targetDate,
+        targetMonth: params?.targetMonth,
+        targetYear: params?.targetYear,
       });
 
       if (!response.success) {
@@ -78,6 +82,102 @@ export function useRecurrentTransactions() {
         transactionsCreated: 0,
         budgetsCreated: 0,
         budgetsUpdated: 0,
+        error: errorMessage,
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processIndividualRecurrentTransaction = async (params: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response =
+        await processRecurrentTransactionsUseCase.regenerateDeletedTransaction({
+          recurrenceId: params.recurrenceId,
+          targetMonth: params.targetMonth,
+          targetYear: params.targetYear,
+        });
+
+      if (!response.success) {
+        setError(response.error || "Error desconocido");
+      }
+
+      return response;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido";
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkRecurrentTransactionExecution = async (params: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{
+    executed: boolean;
+    transactionId?: string;
+    budgetId?: string;
+  }> => {
+    try {
+      const response =
+        await processRecurrentTransactionsUseCase.isRecurrentTransactionExecutedInMonth(
+          {
+            recurrenceId: params.recurrenceId,
+            targetMonth: params.targetMonth,
+            targetYear: params.targetYear,
+          }
+        );
+
+      return response;
+    } catch (err) {
+      console.error("Error checking recurrent transaction execution:", err);
+      return { executed: false };
+    }
+  };
+
+  const unexecuteRecurrentTransaction = async (params: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response =
+        await processRecurrentTransactionsUseCase.unexecuteRecurrentTransaction(
+          {
+            recurrenceId: params.recurrenceId,
+            targetMonth: params.targetMonth,
+            targetYear: params.targetYear,
+          }
+        );
+
+      if (!response.success) {
+        setError(response.error || "Error desconocido");
+      }
+
+      return response;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido";
+      setError(errorMessage);
+      return {
+        success: false,
         error: errorMessage,
       };
     } finally {
@@ -202,24 +302,6 @@ export function useRecurrentTransactions() {
     }
   };
 
-  const pauseRecurrentTransaction = async (
-    id: string
-  ): Promise<UpdateRecurrentTransactionResponse> => {
-    return updateRecurrentTransaction({
-      id,
-      updates: { isActive: false },
-    });
-  };
-
-  const resumeRecurrentTransaction = async (
-    id: string
-  ): Promise<UpdateRecurrentTransactionResponse> => {
-    return updateRecurrentTransaction({
-      id,
-      updates: { isActive: true },
-    });
-  };
-
   // Utilidades para intervalos de recurrencia
   const getAvailableIntervals = () => {
     return Object.values(RECURRENCE_INTERVALS);
@@ -237,14 +319,15 @@ export function useRecurrentTransactions() {
     // Acciones principales
     createRecurrentTransaction,
     processRecurrentTransactions,
+    processIndividualRecurrentTransaction,
     getAllRecurrentTransactions,
     getActiveRecurrentTransactions,
     updateRecurrentTransaction,
     deleteRecurrentTransaction,
 
     // Acciones de conveniencia
-    pauseRecurrentTransaction,
-    resumeRecurrentTransaction,
+    checkRecurrentTransactionExecution,
+    unexecuteRecurrentTransaction,
 
     // Utilidades
     getAvailableIntervals,

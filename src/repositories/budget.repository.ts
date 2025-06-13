@@ -110,6 +110,27 @@ export class BudgetRepository implements IBudgetRepository {
     return this.getStore().deleteTransaction({ budgetId, transactionId });
   }
 
+  // Obtener información de una transacción antes de eliminarla
+  async getTransactionInfo({
+    budgetId,
+    transactionId,
+  }: {
+    budgetId: string;
+    transactionId: string;
+  }): Promise<{ transaction: Transaction; budget: MonthlyBudget } | null> {
+    const budgets = await this.getBudgets();
+    const targetBudget = budgets.find((b) => b.id === budgetId);
+
+    if (!targetBudget) return null;
+
+    const transaction = targetBudget.transactions.find(
+      (t) => t.id === transactionId
+    );
+    if (!transaction) return null;
+
+    return { transaction, budget: targetBudget };
+  }
+
   // Obtener resumen del presupuesto
   async getBudgetSummary({
     budgetId,
@@ -221,22 +242,48 @@ export class BudgetRepository implements IBudgetRepository {
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
 
-    return active.filter((rt) => {
+    console.log(
+      `[DEBUG] Buscando transacciones pendientes para: ${targetDate.toDateString()}`
+    );
+    console.log(`[DEBUG] Transacciones activas: ${active.length}`);
+
+    const dueTransactions = active.filter((rt) => {
       // Verificar si es momento de ejecutar
       const nextExecution = new Date(rt.nextExecutionDate);
       nextExecution.setHours(0, 0, 0, 0);
+
+      console.log(
+        `[DEBUG] Evaluando "${
+          rt.description
+        }": próxima ejecución ${nextExecution.toDateString()}`
+      );
 
       // Verificar que no haya pasado la fecha de fin
       if (rt.endDate) {
         const endDate = new Date(rt.endDate);
         endDate.setHours(0, 0, 0, 0);
         if (targetDate > endDate) {
+          console.log(
+            `[DEBUG] - Rechazada: pasó fecha de fin (${endDate.toDateString()})`
+          );
           return false;
         }
       }
 
-      return targetDate >= nextExecution;
+      const isDue = targetDate >= nextExecution;
+      console.log(
+        `[DEBUG] - ${
+          isDue ? "PENDIENTE" : "No pendiente"
+        }: ${targetDate.toDateString()} >= ${nextExecution.toDateString()}`
+      );
+
+      return isDue;
     });
+
+    console.log(
+      `[DEBUG] Transacciones pendientes encontradas: ${dueTransactions.length}`
+    );
+    return dueTransactions;
   }
 }
 

@@ -83,6 +83,15 @@ export interface IBudgetRepository {
     transactionId: string;
   }): Promise<boolean>;
 
+  // Obtener información de una transacción
+  getTransactionInfo({
+    budgetId,
+    transactionId,
+  }: {
+    budgetId: string;
+    transactionId: string;
+  }): Promise<{ transaction: Transaction; budget: MonthlyBudget } | null>;
+
   // Métodos para transacciones recurrentes
 
   // Crear transacción recurrente

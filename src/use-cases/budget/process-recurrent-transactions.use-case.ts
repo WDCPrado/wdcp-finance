@@ -4,13 +4,17 @@ import { RecurrentTransaction, MonthlyBudget } from "../../types/budget";
 
 export interface ProcessRecurrentTransactionsRequest {
   targetDate?: Date; // Si no se especifica, usa la fecha actual
+  targetMonth?: number; // Mes específico a procesar (1-12)
+  targetYear?: number; // Año específico a procesar
 }
 
 export class ProcessRecurrentTransactionsUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
-    targetDate = new Date(),
+    targetDate,
+    targetMonth,
+    targetYear,
   }: ProcessRecurrentTransactionsRequest = {}): Promise<ProcessRecurrenceResponse> {
     try {
       const warnings: string[] = [];
@@ -18,24 +22,45 @@ export class ProcessRecurrentTransactionsUseCase {
       let budgetsCreated = 0;
       let budgetsUpdated = 0;
 
-      // Normalizar la fecha objetivo
-      const processDate = new Date(targetDate);
+      // Determinar la fecha objetivo
+      let processDate: Date;
+
+      if (targetMonth && targetYear) {
+        // Si se especifica mes/año, usar el primer día de ese mes
+        processDate = new Date(targetYear, targetMonth - 1, 1);
+      } else if (targetDate) {
+        // Si se especifica fecha, usarla
+        processDate = new Date(targetDate);
+      } else {
+        // Por defecto, usar fecha actual
+        processDate = new Date();
+      }
+
       processDate.setHours(0, 0, 0, 0);
 
-      // Obtener todas las transacciones recurrentes que deben ejecutarse
-      const dueRecurrentTransactions =
-        await this.budgetRepository.getRecurrentTransactionsDue({
-          date: processDate,
-        });
+      // Obtener todas las transacciones recurrentes activas
+      const allRecurrentTransactions =
+        await this.budgetRepository.getActiveRecurrentTransactions();
+
+      // Filtrar transacciones que deben ejecutarse para el mes/año específico
+      const dueRecurrentTransactions = this.filterTransactionsForMonth({
+        transactions: allRecurrentTransactions,
+        targetMonth: processDate.getMonth() + 1,
+        targetYear: processDate.getFullYear(),
+        processDate,
+      });
 
       if (dueRecurrentTransactions.length === 0) {
+        const monthYear = `${
+          processDate.getMonth() + 1
+        }/${processDate.getFullYear()}`;
         return {
           success: true,
           transactionsCreated: 0,
           budgetsCreated: 0,
           budgetsUpdated: 0,
           warnings: [
-            "No hay transacciones recurrentes que procesar para esta fecha",
+            `No hay transacciones recurrentes que procesar para ${monthYear}`,
           ],
         };
       }
@@ -301,6 +326,67 @@ export class ProcessRecurrentTransactionsUseCase {
     return targetCategory;
   }
 
+  private filterTransactionsForMonth({
+    transactions,
+    targetMonth,
+    targetYear,
+    processDate,
+  }: {
+    transactions: RecurrentTransaction[];
+    targetMonth: number;
+    targetYear: number;
+    processDate: Date;
+  }): RecurrentTransaction[] {
+    return transactions.filter((rt) => {
+      // Verificar que no haya pasado la fecha de fin
+      if (rt.endDate) {
+        const endDate = new Date(rt.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        if (processDate > endDate) {
+          return false;
+        }
+      }
+
+      // Verificar si esta transacción debe ejecutarse en el mes/año objetivo
+      return this.shouldExecuteInMonth({
+        recurrentTransaction: rt,
+        targetMonth,
+        targetYear,
+      });
+    });
+  }
+
+  private shouldExecuteInMonth({
+    recurrentTransaction,
+    targetMonth,
+    targetYear,
+  }: {
+    recurrentTransaction: RecurrentTransaction;
+    targetMonth: number;
+    targetYear: number;
+  }): boolean {
+    const startDate = new Date(recurrentTransaction.startDate);
+    const startMonth = startDate.getMonth() + 1; // 1-12
+    const startYear = startDate.getFullYear();
+
+    // Si la fecha de inicio es posterior al mes objetivo, no debe ejecutarse
+    if (
+      startYear > targetYear ||
+      (startYear === targetYear && startMonth > targetMonth)
+    ) {
+      return false;
+    }
+
+    // Calcular la diferencia en meses desde el inicio hasta el mes objetivo
+    const monthsDiff =
+      (targetYear - startYear) * 12 + (targetMonth - startMonth);
+
+    // Verificar si es un múltiplo del intervalo (debe ser >= 0 y múltiplo exacto)
+    return (
+      monthsDiff >= 0 && monthsDiff % recurrentTransaction.intervalValue === 0
+    );
+  }
+
   private async updateNextExecutionDate({
     recurrentTransaction,
     processedDate,
@@ -324,5 +410,162 @@ export class ProcessRecurrentTransactionsUseCase {
         isActive: shouldContinue,
       },
     });
+  }
+
+  // Nuevo método para regenerar transacciones eliminadas
+  async regenerateDeletedTransaction({
+    recurrenceId,
+    targetMonth,
+    targetYear,
+  }: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Obtener todas las transacciones recurrentes y buscar por ID
+      const allRecurrentTransactions =
+        await this.budgetRepository.getRecurrentTransactions();
+      const recurrentTransaction = allRecurrentTransactions.find(
+        (rt) => rt.id === recurrenceId
+      );
+
+      if (!recurrentTransaction) {
+        return {
+          success: false,
+          error: "Transacción recurrente no encontrada",
+        };
+      }
+
+      // Verificar si debe ejecutarse en este mes
+      const shouldExecute = this.shouldExecuteInMonth({
+        recurrentTransaction,
+        targetMonth,
+        targetYear,
+      });
+
+      if (!shouldExecute) {
+        return {
+          success: false,
+          error: "Esta transacción no debe ejecutarse en este mes",
+        };
+      }
+
+      // Procesar la transacción para este mes específico
+      const targetDate = new Date(targetYear, targetMonth - 1, 1);
+      await this.processRecurrentTransaction({
+        recurrentTransaction,
+        targetDate,
+      });
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      };
+    }
+  }
+
+  // Nuevo método para verificar si una transacción recurrente ya fue ejecutada en un mes
+  async isRecurrentTransactionExecutedInMonth({
+    recurrenceId,
+    targetMonth,
+    targetYear,
+  }: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{
+    executed: boolean;
+    transactionId?: string;
+    budgetId?: string;
+  }> {
+    try {
+      // Buscar presupuesto para el mes objetivo
+      const targetBudget = await this.budgetRepository.getBudgetByMonth({
+        month: targetMonth,
+        year: targetYear,
+      });
+
+      if (!targetBudget) {
+        return { executed: false };
+      }
+
+      // Buscar si existe una transacción con este recurrenceId en el mes
+      const existingTransaction = targetBudget.transactions.find(
+        (t) =>
+          t.recurrenceId === recurrenceId &&
+          t.date.getMonth() === targetMonth - 1 && // JavaScript months are 0-based
+          t.date.getFullYear() === targetYear
+      );
+
+      if (existingTransaction) {
+        return {
+          executed: true,
+          transactionId: existingTransaction.id,
+          budgetId: targetBudget.id,
+        };
+      }
+
+      return { executed: false };
+    } catch (error) {
+      console.error(
+        "Error checking if recurrent transaction was executed:",
+        error
+      );
+      return { executed: false };
+    }
+  }
+
+  // Nuevo método para desejecutar (eliminar la transacción creada para un mes específico)
+  async unexecuteRecurrentTransaction({
+    recurrenceId,
+    targetMonth,
+    targetYear,
+  }: {
+    recurrenceId: string;
+    targetMonth: number;
+    targetYear: number;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Verificar si la transacción fue ejecutada
+      const executionStatus = await this.isRecurrentTransactionExecutedInMonth({
+        recurrenceId,
+        targetMonth,
+        targetYear,
+      });
+
+      if (
+        !executionStatus.executed ||
+        !executionStatus.transactionId ||
+        !executionStatus.budgetId
+      ) {
+        return {
+          success: false,
+          error: "No se encontró una transacción ejecutada para este mes",
+        };
+      }
+
+      // Eliminar la transacción
+      const deleted = await this.budgetRepository.deleteTransaction({
+        budgetId: executionStatus.budgetId,
+        transactionId: executionStatus.transactionId,
+      });
+
+      if (deleted) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: "No se pudo eliminar la transacción",
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      };
+    }
   }
 }

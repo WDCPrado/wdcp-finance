@@ -54,15 +54,8 @@ export class CreateRecurrentTransactionUseCase {
         };
       }
 
-      // Validar que la fecha de inicio no sea anterior a hoy
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (startDate < today) {
-        return {
-          success: false,
-          error: "La fecha de inicio no puede ser anterior a hoy",
-        };
-      }
+      // Permitir fechas de inicio en el pasado para transacciones recurrentes
+      // que deberían haber empezado antes pero se están configurando ahora
 
       // Validar fecha de fin si se proporciona
       if (endDate && endDate <= startDate) {
@@ -73,7 +66,26 @@ export class CreateRecurrentTransactionUseCase {
       }
 
       // Calcular la próxima fecha de ejecución
-      const nextExecutionDate = new Date(startDate);
+      // Si la fecha de inicio es hoy o en el futuro, la primera ejecución es en la fecha de inicio
+      // Si no, calcular la siguiente fecha según el intervalo
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDateNormalized = new Date(startDate);
+      startDateNormalized.setHours(0, 0, 0, 0);
+
+      let nextExecutionDate: Date;
+      if (startDateNormalized >= today) {
+        // La primera ejecución es en la fecha de inicio
+        nextExecutionDate = new Date(startDate);
+      } else {
+        // Calcular la siguiente fecha de ejecución desde hoy
+        nextExecutionDate = new Date(startDate);
+        while (nextExecutionDate < today) {
+          nextExecutionDate.setMonth(
+            nextExecutionDate.getMonth() + interval.months
+          );
+        }
+      }
 
       // Crear la transacción recurrente
       const recurrentTransaction =
@@ -92,15 +104,11 @@ export class CreateRecurrentTransactionUseCase {
           },
         });
 
-      // Procesar la creación inicial de transacciones para los meses futuros
-      const processingResult = await this.processInitialRecurrence({
-        recurrentTransaction,
-        createFutureMonths,
-      });
-
-      if (processingResult.warnings) {
-        warnings.push(...processingResult.warnings);
-      }
+      // Ya no creamos transacciones automáticamente
+      // La transacción recurrente es solo una plantilla que se ejecuta manualmente
+      warnings.push(
+        `Transacción recurrente creada como plantilla. Usa el modal de transacciones recurrentes para ejecutarla manualmente en los meses que desees.`
+      );
 
       return {
         success: true,
@@ -155,11 +163,20 @@ export class CreateRecurrentTransactionUseCase {
       }
 
       // Generar fechas para los próximos meses según el intervalo
+      // Incluir la fecha de inicio si es hoy o en el futuro
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDateNormalized = new Date(recurrentTransaction.startDate);
+      startDateNormalized.setHours(0, 0, 0, 0);
+
+      // Generar fechas basadas en el intervalo de recurrencia
+      // Siempre incluir el mes de inicio y luego generar los siguientes según el intervalo
       const futureDates = this.generateFutureDates({
         startDate: recurrentTransaction.startDate,
         intervalMonths: recurrentTransaction.intervalValue,
         count: createFutureMonths,
         endDate: recurrentTransaction.endDate,
+        includeStartDate: true, // Siempre incluir la fecha de inicio
       });
 
       for (const futureDate of futureDates) {
@@ -264,16 +281,26 @@ export class CreateRecurrentTransactionUseCase {
     intervalMonths,
     count,
     endDate,
+    includeStartDate = false,
   }: {
     startDate: Date;
     intervalMonths: number;
     count: number;
     endDate?: Date;
+    includeStartDate?: boolean;
   }): Date[] {
     const dates: Date[] = [];
     let currentDate = new Date(startDate);
+    let generatedCount = 0;
 
-    for (let i = 0; i < count; i++) {
+    // Si includeStartDate es true, agregar la fecha de inicio
+    if (includeStartDate) {
+      dates.push(new Date(currentDate));
+      generatedCount++;
+    }
+
+    // Generar fechas futuras según el intervalo
+    while (generatedCount < count) {
       // Incrementar por el intervalo de meses
       currentDate = new Date(currentDate);
       currentDate.setMonth(currentDate.getMonth() + intervalMonths);
@@ -284,6 +311,7 @@ export class CreateRecurrentTransactionUseCase {
       }
 
       dates.push(new Date(currentDate));
+      generatedCount++;
     }
 
     return dates;

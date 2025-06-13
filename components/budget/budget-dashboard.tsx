@@ -510,6 +510,13 @@ export default function BudgetDashboard({
     if (!transactionToDelete) return;
 
     try {
+      // Obtener información de la transacción antes de eliminarla
+      const transactionInfo =
+        await container.budgetRepository.getTransactionInfo({
+          budgetId: budget.id,
+          transactionId: transactionToDelete,
+        });
+
       const updatedTransactions = budget.transactions.filter(
         (t) => t.id !== transactionToDelete
       );
@@ -519,9 +526,49 @@ export default function BudgetDashboard({
         updates: { transactions: updatedTransactions },
       });
 
+      // Si era una transacción recurrente, ofrecer regenerarla
+      if (
+        transactionInfo?.transaction.isRecurrent &&
+        transactionInfo.transaction.recurrenceId
+      ) {
+        toast.success("Transacción eliminada", {
+          description:
+            "Era una transacción recurrente. Se puede regenerar automáticamente.",
+          action: {
+            label: "Regenerar",
+            onClick: async () => {
+              try {
+                const result =
+                  await container.processRecurrentTransactionsUseCase.regenerateDeletedTransaction(
+                    {
+                      recurrenceId: transactionInfo.transaction.recurrenceId!,
+                      targetMonth: budget.month,
+                      targetYear: budget.year,
+                    }
+                  );
+
+                if (result.success) {
+                  onBudgetUpdated();
+                  loadSummary();
+                  toast.success("Transacción regenerada exitosamente");
+                } else {
+                  toast.error("Error al regenerar", {
+                    description: result.error,
+                  });
+                }
+              } catch (error) {
+                console.error("Error regenerating transaction:", error);
+                toast.error("Error al regenerar la transacción");
+              }
+            },
+          },
+        });
+      } else {
+        toast.success("Transacción eliminada exitosamente");
+      }
+
       onBudgetUpdated();
       loadSummary();
-      toast.success("Transacción eliminada exitosamente");
       setShowDeleteTransactionDialog(false);
       setTransactionToDelete("");
     } catch (error) {
@@ -1144,6 +1191,7 @@ export default function BudgetDashboard({
                         setNewTransaction({
                           ...newTransaction,
                           type: "expense",
+                          categoryId: "", // Limpiar categoría al cambiar tipo
                         })
                       }
                       className="flex-1"
@@ -1156,7 +1204,11 @@ export default function BudgetDashboard({
                         newTransaction.type === "income" ? "default" : "outline"
                       }
                       onClick={() =>
-                        setNewTransaction({ ...newTransaction, type: "income" })
+                        setNewTransaction({
+                          ...newTransaction,
+                          type: "income",
+                          categoryId: "", // Limpiar categoría al cambiar tipo
+                        })
                       }
                       className="flex-1"
                     >
@@ -1213,11 +1265,19 @@ export default function BudgetDashboard({
                       <SelectValue placeholder="Seleccionar categoría" />
                     </SelectTrigger>
                     <SelectContent>
-                      {budget.categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
+                      {budget.categories
+                        .filter((category) => {
+                          if (newTransaction.type === "income") {
+                            return isIncomeCategory(category);
+                          } else {
+                            return !isIncomeCategory(category);
+                          }
+                        })
+                        .map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1806,6 +1866,8 @@ export default function BudgetDashboard({
         isOpen={showRecurrentList}
         onClose={() => setShowRecurrentList(false)}
         onEditTransaction={handleEditRecurrentTransaction}
+        currentMonth={budget.month}
+        currentYear={budget.year}
       />
     </div>
   );

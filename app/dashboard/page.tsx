@@ -61,7 +61,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleMonthChange = ({
+  const handleMonthChange = async ({
     month,
     year,
   }: {
@@ -70,6 +70,8 @@ export default function DashboardPage() {
   }) => {
     setCurrentMonth(month);
     setCurrentYear(year);
+
+    // Cargar el presupuesto del mes
     loadBudgetForMonth({ month, year });
   };
 
@@ -154,7 +156,12 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadBudgetForMonth({ month: currentMonth, year: currentYear });
+    const initializeDashboard = async () => {
+      // Cargar el presupuesto del mes actual
+      await loadBudgetForMonth({ month: currentMonth, year: currentYear });
+    };
+
+    initializeDashboard();
   }, []);
 
   if (error) {
