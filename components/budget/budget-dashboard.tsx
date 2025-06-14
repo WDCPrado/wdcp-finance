@@ -8,18 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
-import { IconSelector, ICON_COMPONENTS } from "@/components/ui/icon-selector";
+import { ICON_COMPONENTS } from "@/components/ui/icon-selector";
+
 import {
   BudgetSummary,
   MonthlyBudget,
@@ -37,7 +28,6 @@ import {
   Settings,
   Edit,
   Trash2,
-  AlertTriangle,
   CheckCircle,
   Repeat,
   RotateCcw,
@@ -56,6 +46,13 @@ import {
 import { toast } from "sonner";
 import RecurrentTransactionModal from "./recurrent-transaction-modal";
 import RecurrentTransactionsList from "./recurrent-transactions-list";
+import DeleteBudgetDialog from "./delete-budget-dialog";
+import AddTransactionDialog from "./add-transaction-dialog";
+import AddCategoryDialog from "./add-category-dialog";
+import EditTransactionDialog from "./edit-transaction-dialog";
+import DeleteTransactionDialog from "./delete-transaction-dialog";
+import ExpenseTransactionDialog from "./expense-transaction-dialog";
+import CategoryTransactionsDialog from "./category-transactions-dialog";
 
 interface BudgetDashboardProps {
   budget: MonthlyBudget;
@@ -74,29 +71,11 @@ export default function BudgetDashboard({
   const [showEditBudget, setShowEditBudget] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [newTransaction, setNewTransaction] = useState({
-    type: "expense" as "income" | "expense",
-    amount: 0,
-    description: "",
-    categoryId: "",
-    date: formatDateForInput(new Date()),
-  });
-  const [newCategory, setNewCategory] = useState({
-    name: "",
-    description: "",
-    budgetAmount: 0,
-    color: "#6B7280",
-    icon: "DollarSign" as IconName,
-    type: "expense" as "income" | "expense",
-  });
+
   const [showExpenseTransaction, setShowExpenseTransaction] = useState(false);
   const [selectedExpenseCategory, setSelectedExpenseCategory] =
     useState<string>("");
-  const [expenseTransaction, setExpenseTransaction] = useState({
-    amount: 0,
-    description: "",
-    isComplete: false,
-  });
+
   const [showCategoryTransactions, setShowCategoryTransactions] =
     useState(false);
   const [selectedTransactionCategory, setSelectedTransactionCategory] =
@@ -109,11 +88,7 @@ export default function BudgetDashboard({
     categoryId: string;
     type: "income" | "expense";
   } | null>(null);
-  const [editTransactionData, setEditTransactionData] = useState({
-    amount: 0,
-    description: "",
-    date: "",
-  });
+
   const [showDeleteTransactionDialog, setShowDeleteTransactionDialog] =
     useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<string>("");
@@ -144,33 +119,28 @@ export default function BudgetDashboard({
     loadSummary();
   }, [budget.id]);
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newTransaction.categoryId || newTransaction.amount <= 0) return;
-
+  const handleAddTransaction = async (transaction: {
+    type: "income" | "expense";
+    amount: number;
+    description: string;
+    categoryId: string;
+    date: string;
+  }) => {
     try {
       const result = await container.addTransactionUseCase.execute({
         budgetId: budget.id,
-        type: newTransaction.type,
-        amount: newTransaction.amount,
-        description: newTransaction.description,
-        categoryId: newTransaction.categoryId,
-        date: createDateFromInput(newTransaction.date),
+        type: transaction.type,
+        amount: transaction.amount,
+        description: transaction.description,
+        categoryId: transaction.categoryId,
+        date: createDateFromInput(transaction.date),
       });
 
       if (result.success) {
-        setNewTransaction({
-          type: "expense",
-          amount: 0,
-          description: "",
-          categoryId: "",
-          date: formatDateForInput(new Date()),
-        });
-
         setShowAddTransaction(false);
         onBudgetUpdated();
         loadSummary();
+        toast.success("Transacción agregada exitosamente");
 
         if (result.warnings && result.warnings.length > 0) {
           toast.warning("Advertencias", {
@@ -190,20 +160,23 @@ export default function BudgetDashboard({
     }
   };
 
-  const handleAddCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newCategory.name.trim() || newCategory.budgetAmount <= 0) return;
-
+  const handleAddCategory = async (categoryData: {
+    name: string;
+    description: string;
+    budgetAmount: number;
+    color: string;
+    icon: IconName;
+    type: "income" | "expense";
+  }) => {
     try {
       const category: Category = {
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-        name: newCategory.name.trim(),
-        description: newCategory.description.trim(),
-        color: newCategory.color,
-        icon: newCategory.icon,
-        budgetAmount: newCategory.budgetAmount,
-        type: newCategory.type,
+        name: categoryData.name.trim(),
+        description: categoryData.description.trim(),
+        color: categoryData.color,
+        icon: categoryData.icon,
+        budgetAmount: categoryData.budgetAmount,
+        type: categoryData.type,
       };
 
       const updatedCategories = [...budget.categories, category];
@@ -213,18 +186,10 @@ export default function BudgetDashboard({
         updates: { categories: updatedCategories },
       });
 
-      setNewCategory({
-        name: "",
-        description: "",
-        budgetAmount: 0,
-        color: "#6B7280",
-        icon: "DollarSign" as IconName,
-        type: "expense" as "income" | "expense",
-      });
-
       setShowAddCategory(false);
       onBudgetUpdated();
       loadSummary();
+      toast.success("Categoría agregada exitosamente");
     } catch (error) {
       console.error("Error adding category:", error);
       toast.error("Error inesperado", {
@@ -369,42 +334,21 @@ export default function BudgetDashboard({
   };
 
   const handleOpenExpenseTransaction = (categoryId: string) => {
-    const category = budget.categories.find((c) => c.id === categoryId);
-    if (!category) return;
-
     setSelectedExpenseCategory(categoryId);
-    setExpenseTransaction({
-      amount: category.budgetAmount,
-      description: "",
-      isComplete: true,
-    });
     setShowExpenseTransaction(true);
   };
 
-  const handleExpenseTransactionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const category = budget.categories.find(
-      (c) => c.id === selectedExpenseCategory
-    );
-    if (!category) return;
-
-    if (expenseTransaction.amount <= 0) {
-      toast.error("El monto debe ser mayor a 0");
-      return;
-    }
-
-    if (!expenseTransaction.description.trim()) {
-      toast.error("Debe agregar una descripción");
-      return;
-    }
-
+  const handleExpenseTransactionSubmit = async (data: {
+    amount: number;
+    description: string;
+    isComplete: boolean;
+  }) => {
     try {
       const result = await container.addTransactionUseCase.execute({
         budgetId: budget.id,
         type: "expense",
-        amount: expenseTransaction.amount,
-        description: expenseTransaction.description.trim(),
+        amount: data.amount,
+        description: data.description.trim(),
         categoryId: selectedExpenseCategory,
         date: new Date(),
       });
@@ -413,11 +357,6 @@ export default function BudgetDashboard({
         onBudgetUpdated();
         loadSummary();
         setShowExpenseTransaction(false);
-        setExpenseTransaction({
-          amount: 0,
-          description: "",
-          isComplete: false,
-        });
         setSelectedExpenseCategory("");
 
         toast.success("¡Gasto registrado exitosamente!");
@@ -461,34 +400,23 @@ export default function BudgetDashboard({
           : formatDateForInput(transaction.date),
     };
     setEditingTransaction(transactionWithStringDate);
-    setEditTransactionData({
-      amount: transaction.amount,
-      description: transaction.description,
-      date: formatDateForInput(transaction.date),
-    });
   };
 
-  const handleUpdateTransaction = async () => {
+  const handleUpdateTransaction = async (data: {
+    amount: number;
+    description: string;
+    date: string;
+  }) => {
     if (!editingTransaction) return;
-
-    if (editTransactionData.amount <= 0) {
-      toast.error("El monto debe ser mayor a 0");
-      return;
-    }
-
-    if (!editTransactionData.description.trim()) {
-      toast.error("Debe agregar una descripción");
-      return;
-    }
 
     try {
       const updatedTransactions = budget.transactions.map((t) =>
         t.id === editingTransaction.id
           ? {
               ...t,
-              amount: editTransactionData.amount,
-              description: editTransactionData.description.trim(),
-              date: createDateFromInput(editTransactionData.date),
+              amount: data.amount,
+              description: data.description.trim(),
+              date: createDateFromInput(data.date),
             }
           : t
       );
@@ -1201,698 +1129,85 @@ export default function BudgetDashboard({
         onSuccess={handleEditSuccess}
       />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-2 sm:p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md bg-background border border-border shadow-xl rounded-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                <span className="text-foreground">Confirmar Eliminación</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground">
-                ¿Estás seguro de que quieres eliminar el presupuesto{" "}
-                <strong>&ldquo;{budget.name}&rdquo;</strong>?
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Esta acción no se puede deshacer. Se eliminarán todas las
-                transacciones y datos asociados.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={isDeleting}
-                  className="w-full sm:w-auto"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteBudget}
-                  disabled={isDeleting}
-                  className="w-full sm:w-auto"
-                >
-                  {isDeleting ? "Eliminando..." : "Eliminar"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Delete Budget Dialog */}
+      <DeleteBudgetDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteBudget}
+        budgetName={budget.name}
+        isDeleting={isDeleting}
+      />
 
-      {/* Add Transaction Modal */}
-      {showAddTransaction && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md">
-            <CardHeader>
-              <CardTitle>Agregar Transacción</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddTransaction} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={
-                        newTransaction.type === "expense"
-                          ? "default"
-                          : "outline"
-                      }
-                      onClick={() =>
-                        setNewTransaction({
-                          ...newTransaction,
-                          type: "expense",
-                          categoryId: "", // Limpiar categoría al cambiar tipo
-                        })
-                      }
-                      className="flex-1"
-                    >
-                      Gasto
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={
-                        newTransaction.type === "income" ? "default" : "outline"
-                      }
-                      onClick={() =>
-                        setNewTransaction({
-                          ...newTransaction,
-                          type: "income",
-                          categoryId: "", // Limpiar categoría al cambiar tipo
-                        })
-                      }
-                      className="flex-1"
-                    >
-                      Ingreso
-                    </Button>
-                  </div>
-                </div>
+      {/* Add Transaction Dialog */}
+      <AddTransactionDialog
+        isOpen={showAddTransaction}
+        onClose={() => setShowAddTransaction(false)}
+        onSubmit={handleAddTransaction}
+        budget={budget}
+      />
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Monto</Label>
-                  <CurrencyInput
-                    id="amount"
-                    value={newTransaction.amount}
-                    onChange={(value) =>
-                      setNewTransaction({
-                        ...newTransaction,
-                        amount: value,
-                      })
-                    }
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
+      {/* Add Category Dialog */}
+      <AddCategoryDialog
+        isOpen={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        onSubmit={handleAddCategory}
+      />
 
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descripción</Label>
-                  <Input
-                    id="description"
-                    value={newTransaction.description}
-                    onChange={(e) =>
-                      setNewTransaction({
-                        ...newTransaction,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Ej: Compra supermercado"
-                    required
-                  />
-                </div>
+      {/* Expense Transaction Dialog */}
+      <ExpenseTransactionDialog
+        isOpen={showExpenseTransaction && !!selectedExpenseCategory}
+        onClose={() => {
+          setShowExpenseTransaction(false);
+          setSelectedExpenseCategory("");
+        }}
+        onSubmit={handleExpenseTransactionSubmit}
+        categoryName={
+          budget.categories.find((c) => c.id === selectedExpenseCategory)
+            ?.name || ""
+        }
+        categoryBudgetAmount={
+          budget.categories.find((c) => c.id === selectedExpenseCategory)
+            ?.budgetAmount || 0
+        }
+      />
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <Select
-                    value={newTransaction.categoryId}
-                    onValueChange={(value) =>
-                      setNewTransaction({
-                        ...newTransaction,
-                        categoryId: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {budget.categories
-                        .filter((category) => {
-                          if (newTransaction.type === "income") {
-                            return isIncomeCategory(category);
-                          } else {
-                            return !isIncomeCategory(category);
-                          }
-                        })
-                        .map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+      {/* Category Transactions Dialog */}
+      <CategoryTransactionsDialog
+        isOpen={showCategoryTransactions && !!selectedTransactionCategory}
+        onClose={() => {
+          setShowCategoryTransactions(false);
+          setSelectedTransactionCategory("");
+        }}
+        categoryName={
+          budget.categories.find((c) => c.id === selectedTransactionCategory)
+            ?.name || ""
+        }
+        transactions={budget.transactions.filter(
+          (t) => t.categoryId === selectedTransactionCategory
+        )}
+        onEditTransaction={handleEditTransaction}
+        onDeleteTransaction={handleDeleteTransaction}
+      />
 
-                <div className="space-y-2">
-                  <Label htmlFor="date">Fecha</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={newTransaction.date}
-                    onChange={(e) =>
-                      setNewTransaction({
-                        ...newTransaction,
-                        date: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowAddTransaction(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit">Agregar</Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Add Category Modal */}
-      {showAddCategory && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md">
-            <CardHeader>
-              <CardTitle>Agregar Categoría</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddCategory} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category-name">Nombre</Label>
-                  <Input
-                    id="category-name"
-                    value={newCategory.name}
-                    onChange={(e) =>
-                      setNewCategory({
-                        ...newCategory,
-                        name: e.target.value,
-                      })
-                    }
-                    placeholder="Ej: Educación"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category-description">Descripción</Label>
-                  <Input
-                    id="category-description"
-                    value={newCategory.description}
-                    onChange={(e) =>
-                      setNewCategory({
-                        ...newCategory,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Ej: Cursos, libros, materiales"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={
-                        newCategory.type === "expense" ? "default" : "outline"
-                      }
-                      onClick={() =>
-                        setNewCategory({
-                          ...newCategory,
-                          type: "expense",
-                        })
-                      }
-                      className="flex-1"
-                    >
-                      Gasto
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={
-                        newCategory.type === "income" ? "default" : "outline"
-                      }
-                      onClick={() =>
-                        setNewCategory({
-                          ...newCategory,
-                          type: "income",
-                        })
-                      }
-                      className="flex-1"
-                    >
-                      Ingreso
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Icono</Label>
-                  <IconSelector
-                    value={newCategory.icon}
-                    onChange={(icon: IconName) =>
-                      setNewCategory({
-                        ...newCategory,
-                        icon: icon,
-                      })
-                    }
-                    color={newCategory.color}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category-budget">Presupuesto</Label>
-                  <CurrencyInput
-                    id="category-budget"
-                    value={newCategory.budgetAmount}
-                    onChange={(value) =>
-                      setNewCategory({
-                        ...newCategory,
-                        budgetAmount: value,
-                      })
-                    }
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category-color">Color</Label>
-                  <input
-                    id="category-color"
-                    type="color"
-                    value={newCategory.color}
-                    onChange={(e) =>
-                      setNewCategory({
-                        ...newCategory,
-                        color: e.target.value,
-                      })
-                    }
-                    className="w-full h-10 rounded border"
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowAddCategory(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit">Agregar</Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Expense Transaction Modal */}
-      {showExpenseTransaction && selectedExpenseCategory && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Plus className="h-5 w-5" />
-                Registrar Gasto
-              </CardTitle>
-              <CardDescription>
-                {
-                  budget.categories.find(
-                    (c) => c.id === selectedExpenseCategory
-                  )?.name
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={handleExpenseTransactionSubmit}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label>Tipo de Gasto</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={
-                        expenseTransaction.isComplete ? "default" : "outline"
-                      }
-                      onClick={() => {
-                        const category = budget.categories.find(
-                          (c) => c.id === selectedExpenseCategory
-                        );
-                        setExpenseTransaction({
-                          ...expenseTransaction,
-                          isComplete: true,
-                          amount: category?.budgetAmount || 0,
-                        });
-                      }}
-                      className="flex-1"
-                    >
-                      Completo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={
-                        !expenseTransaction.isComplete ? "default" : "outline"
-                      }
-                      onClick={() =>
-                        setExpenseTransaction({
-                          ...expenseTransaction,
-                          isComplete: false,
-                          amount: 0,
-                        })
-                      }
-                      className="flex-1"
-                    >
-                      Parcial
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="expense-amount">Monto</Label>
-                  <CurrencyInput
-                    id="expense-amount"
-                    value={expenseTransaction.amount}
-                    onChange={(value) =>
-                      setExpenseTransaction({
-                        ...expenseTransaction,
-                        amount: value,
-                      })
-                    }
-                    min="0"
-                    step="0.01"
-                    required
-                    disabled={expenseTransaction.isComplete}
-                  />
-                  {expenseTransaction.isComplete && (
-                    <p className="text-sm text-muted-foreground">
-                      Monto completo de la categoría
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="expense-description">
-                    Descripción / Comentario
-                  </Label>
-                  <Input
-                    id="expense-description"
-                    value={expenseTransaction.description}
-                    onChange={(e) =>
-                      setExpenseTransaction({
-                        ...expenseTransaction,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Ej: Compra en supermercado, pago de servicio..."
-                    required
-                  />
-                </div>
-
-                <div className="bg-muted p-3 rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Resumen:
-                  </div>
-                  <div className="font-medium">
-                    {expenseTransaction.isComplete
-                      ? "Gasto Completo"
-                      : "Gasto Parcial"}
-                    : {formatCurrency({ amount: expenseTransaction.amount })}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowExpenseTransaction(false);
-                      setSelectedExpenseCategory("");
-                      setExpenseTransaction({
-                        amount: 0,
-                        description: "",
-                        isComplete: false,
-                      });
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/80"
-                  >
-                    Registrar Gasto
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Category Transactions Modal */}
-      {showCategoryTransactions && selectedTransactionCategory && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Settings className="h-5 w-5" />
-                Transacciones de{" "}
-                {
-                  budget.categories.find(
-                    (c) => c.id === selectedTransactionCategory
-                  )?.name
-                }
-              </CardTitle>
-              <CardDescription>
-                Ver, editar y eliminar transacciones de esta categoría
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {budget.transactions.filter(
-                (t) => t.categoryId === selectedTransactionCategory
-              ).length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
-                  <p>No hay transacciones registradas para esta categoría</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {budget.transactions
-                    .filter((t) => t.categoryId === selectedTransactionCategory)
-                    .sort(
-                      (a, b) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
-                    )
-                    .map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium">
-                            {transaction.description}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatDate(transaction.date)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="font-semibold text-destructive">
-                            -{formatCurrency({ amount: transaction.amount })}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditTransaction(transaction)}
-                              className="border-primary text-primary hover:bg-primary/10"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleDeleteTransaction(transaction.id)
-                              }
-                              className="border-destructive text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-              <div className="flex justify-end mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowCategoryTransactions(false);
-                    setSelectedTransactionCategory("");
-                  }}
-                >
-                  Cerrar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Edit Transaction Modal */}
-      {editingTransaction && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-600">
-                <Edit className="h-5 w-5" />
-                Editar Transacción
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-amount">Monto</Label>
-                  <CurrencyInput
-                    id="edit-amount"
-                    value={editTransactionData.amount}
-                    onChange={(value) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        amount: value,
-                      })
-                    }
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-description">Descripción</Label>
-                  <Input
-                    id="edit-description"
-                    value={editTransactionData.description}
-                    onChange={(e) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Descripción de la transacción"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-date">Fecha</Label>
-                  <Input
-                    id="edit-date"
-                    type="date"
-                    value={editTransactionData.date}
-                    onChange={(e) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        date: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditingTransaction(null);
-                      setEditTransactionData({
-                        amount: 0,
-                        description: "",
-                        date: "",
-                      });
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={handleUpdateTransaction}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Actualizar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Edit Transaction Dialog */}
+      <EditTransactionDialog
+        isOpen={!!editingTransaction}
+        onClose={() => {
+          setEditingTransaction(null);
+        }}
+        onSubmit={handleUpdateTransaction}
+        transaction={editingTransaction}
+      />
 
       {/* Delete Transaction Confirmation Dialog */}
-      {showDeleteTransactionDialog && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-xs sm:max-w-md bg-background border border-border shadow-xl rounded-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                <span className="text-foreground">Confirmar Eliminación</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground">
-                ¿Estás seguro de que quieres eliminar esta transacción?
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Esta acción no se puede deshacer.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteTransactionDialog(false);
-                    setTransactionToDelete("");
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={confirmDeleteTransaction}
-                  className="w-full sm:w-auto"
-                >
-                  Eliminar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <DeleteTransactionDialog
+        isOpen={showDeleteTransactionDialog}
+        onClose={() => {
+          setShowDeleteTransactionDialog(false);
+          setTransactionToDelete("");
+        }}
+        onConfirm={confirmDeleteTransaction}
+      />
 
       {/* Floating Buttons Group */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">

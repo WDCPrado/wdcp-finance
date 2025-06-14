@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useRecurrentTransactions } from "@/src/hooks/useRecurrentTransactions";
 import { RecurrentTransaction } from "@/src/types/budget";
 import { RECURRENCE_INTERVALS } from "@/src/types/recurrence";
@@ -371,8 +372,6 @@ export default function RecurrentTransactionsList({
     return monthNames[month - 1] || "Mes desconocido";
   };
 
-  if (!isOpen) return null;
-
   const displayTransactions =
     currentMonth && currentYear ? filteredTransactions : transactions;
   const monthYearText =
@@ -381,14 +380,14 @@ export default function RecurrentTransactionsList({
       : "Todas";
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-green-600">
+            <DialogTitle className="flex items-center gap-2 text-green-600">
               <Repeat className="h-5 w-5" />
               Plantillas de Transacciones Recurrentes - {monthYearText}
-            </CardTitle>
+            </DialogTitle>
             <div className="flex items-center gap-2">
               {currentMonth &&
                 currentYear &&
@@ -404,17 +403,9 @@ export default function RecurrentTransactionsList({
                     Ejecutar Todas
                   </Button>
                 )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
-          <CardDescription className="space-y-2">
+          <DialogDescription className="space-y-2">
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 text-blue-500 mt-0.5" />
               <div className="text-sm">
@@ -433,9 +424,10 @@ export default function RecurrentTransactionsList({
                 </p>
               </div>
             </div>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
           {isLoadingList ? (
             <div className="flex justify-center py-8">
               <div className="text-muted-foreground">
@@ -463,173 +455,174 @@ export default function RecurrentTransactionsList({
               {displayTransactions.map((transaction) => {
                 const isExecuted = executionStatus[transaction.id]?.executed;
                 return (
-                  <Card key={transaction.id} className="border border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-medium">
-                              {transaction.description}
-                            </h4>
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                                transaction.type === "income"
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                              }`}
-                            >
-                              {transaction.type === "income"
-                                ? "Ingreso"
-                                : "Gasto"}
+                  <div
+                    key={transaction.id}
+                    className="border border-border rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-medium">
+                            {transaction.description}
+                          </h4>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                              transaction.type === "income"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                            }`}
+                          >
+                            {transaction.type === "income"
+                              ? "Ingreso"
+                              : "Gasto"}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                            📋 Plantilla
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">
+                              Monto:
                             </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                              📋 Plantilla
-                            </span>
+                            <div className="font-medium">
+                              {formatCurrency({ amount: transaction.amount })}
+                            </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">
-                                Monto:
-                              </span>
-                              <div className="font-medium">
-                                {formatCurrency({ amount: transaction.amount })}
-                              </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Intervalo:
+                            </span>
+                            <div className="font-medium">
+                              {getIntervalLabel(transaction)}
                             </div>
-
-                            <div>
-                              <span className="text-muted-foreground">
-                                Intervalo:
-                              </span>
-                              <div className="font-medium">
-                                {getIntervalLabel(transaction)}
-                              </div>
-                            </div>
-
-                            <div>
-                              <span className="text-muted-foreground">
-                                Próxima ejecución:
-                              </span>
-                              <div className="font-medium">
-                                {transaction.nextExecutionDate
-                                  ? formatDate(transaction.nextExecutionDate)
-                                  : "N/A"}
-                              </div>
-                            </div>
-
-                            {currentMonth && currentYear && (
-                              <div>
-                                <span className="text-muted-foreground">
-                                  Estado en {getMonthName(currentMonth)}{" "}
-                                  {currentYear}:
-                                </span>
-                                <div
-                                  className={`font-medium flex items-center gap-1 ${
-                                    isExecuted
-                                      ? "text-green-600"
-                                      : "text-gray-600"
-                                  }`}
-                                >
-                                  {isExecuted ? (
-                                    <>
-                                      <span className="text-green-500">✓</span>
-                                      Transacción creada
-                                    </>
-                                  ) : (
-                                    <>
-                                      <span className="text-gray-400">○</span>
-                                      Sin ejecutar
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                           </div>
 
-                          {transaction.endDate && (
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              <Calendar className="h-4 w-4 inline mr-1" />
-                              Finaliza el {formatDate(transaction.endDate)}
+                          <div>
+                            <span className="text-muted-foreground">
+                              Próxima ejecución:
+                            </span>
+                            <div className="font-medium">
+                              {transaction.nextExecutionDate
+                                ? formatDate(transaction.nextExecutionDate)
+                                : "N/A"}
+                            </div>
+                          </div>
+
+                          {currentMonth && currentYear && (
+                            <div>
+                              <span className="text-muted-foreground">
+                                Estado en {getMonthName(currentMonth)}{" "}
+                                {currentYear}:
+                              </span>
+                              <div
+                                className={`font-medium flex items-center gap-1 ${
+                                  isExecuted
+                                    ? "text-green-600"
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {isExecuted ? (
+                                  <>
+                                    <span className="text-green-500">✓</span>
+                                    Transacción creada
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-gray-400">○</span>
+                                    Sin ejecutar
+                                  </>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1 ml-4">
-                          {/* Botón para ejecutar/desejecutar transacción individual */}
-                          {currentMonth &&
-                            currentYear &&
-                            transaction.isActive && (
-                              <>
-                                {isExecuted ? (
-                                  // Botón para eliminar la transacción creada
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      handleUnexecuteIndividual(transaction)
-                                    }
-                                    className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-                                    disabled={
-                                      loading ||
-                                      processingIndividual === transaction.id
-                                    }
-                                    title={`Eliminar transacción creada para ${currentMonth}/${currentYear}`}
-                                  >
-                                    {processingIndividual === transaction.id ? (
-                                      <Clock className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <X className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                ) : (
-                                  // Botón para crear transacción desde plantilla
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      handleProcessIndividual(transaction)
-                                    }
-                                    className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                                    disabled={
-                                      loading ||
-                                      processingIndividual === transaction.id
-                                    }
-                                    title={`Crear transacción desde plantilla para ${currentMonth}/${currentYear}`}
-                                  >
-                                    {processingIndividual === transaction.id ? (
-                                      <Clock className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <PlayCircle className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                )}
-                              </>
-                            )}
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onEditTransaction(transaction)}
-                            className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-                            title="Editar plantilla"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(transaction)}
-                            className="border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                            disabled={loading}
-                            title="Eliminar plantilla (y todas las transacciones futuras)"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {transaction.endDate && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4 inline mr-1" />
+                            Finaliza el {formatDate(transaction.endDate)}
+                          </div>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
+
+                      <div className="flex items-center gap-1 ml-4">
+                        {/* Botón para ejecutar/desejecutar transacción individual */}
+                        {currentMonth &&
+                          currentYear &&
+                          transaction.isActive && (
+                            <>
+                              {isExecuted ? (
+                                // Botón para eliminar la transacción creada
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleUnexecuteIndividual(transaction)
+                                  }
+                                  className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+                                  disabled={
+                                    loading ||
+                                    processingIndividual === transaction.id
+                                  }
+                                  title={`Eliminar transacción creada para ${currentMonth}/${currentYear}`}
+                                >
+                                  {processingIndividual === transaction.id ? (
+                                    <Clock className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <X className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              ) : (
+                                // Botón para crear transacción desde plantilla
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleProcessIndividual(transaction)
+                                  }
+                                  className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                                  disabled={
+                                    loading ||
+                                    processingIndividual === transaction.id
+                                  }
+                                  title={`Crear transacción desde plantilla para ${currentMonth}/${currentYear}`}
+                                >
+                                  {processingIndividual === transaction.id ? (
+                                    <Clock className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <PlayCircle className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </>
+                          )}
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEditTransaction(transaction)}
+                          className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          title="Editar plantilla"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(transaction)}
+                          className="border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                          disabled={loading}
+                          title="Eliminar plantilla (y todas las transacciones futuras)"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -640,14 +633,14 @@ export default function RecurrentTransactionsList({
               {error}
             </div>
           )}
+        </div>
 
-          <div className="flex justify-end mt-6">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

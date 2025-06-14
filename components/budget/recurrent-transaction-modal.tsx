@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -25,7 +26,7 @@ import { createCustomInterval } from "@/src/utils/recurrence";
 import { MonthlyBudget, RecurrentTransaction } from "@/src/types/budget";
 import { formatDateForInput, createDateFromInput } from "@/src/utils/date";
 import { toast } from "sonner";
-import { Repeat, X } from "lucide-react";
+import { Repeat } from "lucide-react";
 
 interface RecurrentTransactionModalProps {
   isOpen: boolean;
@@ -258,33 +259,22 @@ export default function RecurrentTransactionModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <Repeat className="h-5 w-5" />
-              {editingTransaction ? "Editar" : "Crear"} Plantilla Recurrente
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <CardDescription>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-green-600">
+            <Repeat className="h-5 w-5" />
+            {editingTransaction ? "Editar" : "Crear"} Plantilla Recurrente
+          </DialogTitle>
+          <DialogDescription>
             {editingTransaction
               ? "Modifica los datos de la plantilla recurrente"
               : "Crea una plantilla que generará transacciones automáticamente"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Tipo de Transacción */}
             <div className="space-y-2">
@@ -511,7 +501,7 @@ export default function RecurrentTransactionModal({
             )}
 
             {/* Botones */}
-            <div className="flex gap-2 justify-end pt-4">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
@@ -531,10 +521,10 @@ export default function RecurrentTransactionModal({
                   ? "Actualizar"
                   : "Crear"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

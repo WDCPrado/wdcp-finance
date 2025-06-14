@@ -92,116 +92,116 @@ export default function MonthNavigator({
 
   return (
     <>
-      {/* Botones de acción */}
-      <div className="flex items-center gap-2 fixed top-5 right-5">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowSettings(true)}
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          Configuración
-        </Button>
-      </div>
-      <Card className="w-full">
-        <CardContent className="py-4">
-          <div className="w-full">
-            <div className="flex items-center w-full gap-2 sm:gap-4">
-              {/* Flecha Izquierda */}
-              <div className="flex-1 flex justify-start">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreviousMonth}
-                  disabled={isLoading}
-                  className="sm:w-12 w-10"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              </div>
-              {/* Mes/Año */}
-              <div className="flex-1 flex justify-center">
-                <div className="flex items-center gap-2 px-2 sm:px-4">
-                  <Calendar className="h-5 w-5 text-gray-500" />
-                  <span className="text-lg font-semibold min-w-[100px] text-center">
-                    {MONTHS[currentMonth - 1]} {currentYear}
-                  </span>
-                </div>
-              </div>
-              {/* Flecha Derecha */}
-              <div className="flex-1 flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNextMonth}
-                  disabled={isLoading}
-                  className="sm:w-12 w-10"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+      {/* Navbar Flotante Sticky */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-14 w-full">
+            {/* Flecha Izquierda */}
+            <div className="flex justify-start">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePreviousMonth}
+                disabled={isLoading}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Mes en el Centro */}
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-sm sm:text-base">
+                {MONTHS[currentMonth - 1]} {currentYear}
+              </span>
+              {/* Indicador de estado compacto */}
+              {isLoading ? (
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+              ) : hasCurrentBudget ? (
+                <div
+                  className="w-2 h-2 bg-green-500 rounded-full"
+                  title="Presupuesto activo"
+                />
+              ) : (
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full"
+                  title="Sin presupuesto"
+                />
+              )}
+            </div>
+
+            {/* Flecha Derecha */}
+            <div className="flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNextMonth}
+                disabled={isLoading}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-          {/* Indicador de estado */}
-          <div className="mt-3 text-center">
-            {isLoading ? (
-              <span className="text-sm text-gray-500">Cargando...</span>
-            ) : hasCurrentBudget ? (
-              <span className="text-sm text-green-600">
-                ✓ Presupuesto activo
-              </span>
-            ) : (
-              <span className="text-sm text-gray-500">
-                Sin presupuesto para este mes
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Botón de Configuración Flotante */}
+      <div className="fixed bottom-6 left-6 z-50">
+        <Button
+          onClick={() => setShowSettings(true)}
+          className="w-12 h-12 rounded-full bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          size="lg"
+          title="Configuración"
+        >
+          <Settings className="h-5 w-5" />
+        </Button>
+      </div>
 
       {/* Modal de Configuración */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-lg bg-background border border-border">
-            <CardContent className="pt-6">
+          <Card className="w-full max-w-md bg-background border border-border shadow-xl">
+            <CardContent className="p-6">
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-foreground">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
                     Configuración
                   </h2>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowSettings(false)}
+                    className="h-8 w-8 p-0 hover:bg-muted"
                   >
                     ×
                   </Button>
                 </div>
 
                 {/* Configuración de Moneda */}
-                <CurrencySelector showCard={false} />
+                <div className="space-y-3">
+                  <CurrencySelector showCard={false} />
+                </div>
 
                 {/* Configuración de Tema */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-foreground">
-                    Tema
+                    Apariencia
                   </label>
                   <Select
                     value={mounted ? theme : "system"}
                     onValueChange={setTheme}
                   >
-                    <SelectTrigger className="w-full bg-background border-border">
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
+                    <SelectContent>
                       {THEME_OPTIONS.map((option) => {
                         const IconComponent = option.icon;
                         return (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            className="text-foreground"
-                          >
+                          <SelectItem key={option.value} value={option.value}>
                             <div className="flex items-center gap-2">
                               <IconComponent className="h-4 w-4" />
                               <span>{option.label}</span>
@@ -213,8 +213,16 @@ export default function MonthNavigator({
                   </Select>
                 </div>
 
-                <div className="flex justify-end">
-                  <Button onClick={() => setShowSettings(false)}>Cerrar</Button>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSettings(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setShowSettings(false)}>
+                    Aplicar
+                  </Button>
                 </div>
               </div>
             </CardContent>
