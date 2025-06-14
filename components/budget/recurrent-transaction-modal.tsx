@@ -23,7 +23,7 @@ import { useRecurrentTransactions } from "@/src/hooks/useRecurrentTransactions";
 import { RECURRENCE_INTERVALS } from "@/src/types/recurrence";
 import { createCustomInterval } from "@/src/utils/recurrence";
 import { MonthlyBudget, RecurrentTransaction } from "@/src/types/budget";
-import { formatDateForInput } from "@/src/utils/date";
+import { formatDateForInput, createDateFromInput } from "@/src/utils/date";
 import { toast } from "sonner";
 import { Repeat, X } from "lucide-react";
 
@@ -196,7 +196,7 @@ export default function RecurrentTransactionModal({
             description: formData.description.trim(),
             endDate:
               hasEndDate && formData.endDate
-                ? new Date(formData.endDate)
+                ? createDateFromInput(formData.endDate)
                 : undefined,
             intervalValue: interval.months,
           },
@@ -221,10 +221,10 @@ export default function RecurrentTransactionModal({
           amount: formData.amount,
           description: formData.description.trim(),
           categoryId: formData.categoryId,
-          startDate: new Date(formData.startDate),
+          startDate: createDateFromInput(formData.startDate),
           endDate:
             hasEndDate && formData.endDate
-              ? new Date(formData.endDate)
+              ? createDateFromInput(formData.endDate)
               : undefined,
           interval,
           createFutureMonths: formData.createFutureMonths,

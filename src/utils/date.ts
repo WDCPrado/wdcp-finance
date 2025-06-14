@@ -24,12 +24,44 @@ export const formatDateTime = (date: Date | string): string => {
 
 /**
  * Formatea una fecha para usar en inputs tipo date (YYYY-MM-DD)
+ * Maneja correctamente la zona horaria local para evitar cambios de fecha
  * @param date - Fecha a formatear
- * @returns Fecha en formato YYYY-MM-DD
+ * @returns Fecha en formato YYYY-MM-DD en zona horaria local
  */
 export const formatDateForInput = (date: Date | string): string => {
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  return dateObj.toISOString().split("T")[0];
+
+  // Usar zona horaria local para evitar cambios de fecha
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Crea un objeto Date desde un string de input date manteniendo la zona horaria local
+ * @param dateString - String en formato YYYY-MM-DD
+ * @returns Date object en zona horaria local
+ */
+export const createDateFromInput = (dateString: string): Date => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  // Crear fecha en zona horaria local (mes es 0-indexado)
+  return new Date(year, month - 1, day);
+};
+
+/**
+ * Crea un objeto Date para inicio del día en zona horaria local
+ * @param date - Fecha base
+ * @returns Date object al inicio del día en zona horaria local
+ */
+export const createLocalDate = (date?: Date): Date => {
+  const baseDate = date || new Date();
+  return new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate()
+  );
 };
 
 /**

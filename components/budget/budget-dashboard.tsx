@@ -46,7 +46,11 @@ import { useEffect, useState } from "react";
 import { container } from "@/src/di/container";
 import { useCurrency } from "@/src/hooks/useCurrency";
 import EditBudgetModal from "./edit-budget-modal";
-import { formatDate, formatDateForInput } from "@/src/utils/date";
+import {
+  formatDate,
+  formatDateForInput,
+  createDateFromInput,
+} from "@/src/utils/date";
 import { toast } from "sonner";
 import RecurrentTransactionModal from "./recurrent-transaction-modal";
 import RecurrentTransactionsList from "./recurrent-transactions-list";
@@ -147,7 +151,7 @@ export default function BudgetDashboard({
         amount: newTransaction.amount,
         description: newTransaction.description,
         categoryId: newTransaction.categoryId,
-        date: new Date(newTransaction.date),
+        date: createDateFromInput(newTransaction.date),
       });
 
       if (result.success) {
@@ -449,7 +453,7 @@ export default function BudgetDashboard({
       date:
         typeof transaction.date === "string"
           ? transaction.date
-          : transaction.date.toISOString(),
+          : formatDateForInput(transaction.date),
     };
     setEditingTransaction(transactionWithStringDate);
     setEditTransactionData({
@@ -479,7 +483,7 @@ export default function BudgetDashboard({
               ...t,
               amount: editTransactionData.amount,
               description: editTransactionData.description.trim(),
-              date: new Date(editTransactionData.date),
+              date: createDateFromInput(editTransactionData.date),
             }
           : t
       );

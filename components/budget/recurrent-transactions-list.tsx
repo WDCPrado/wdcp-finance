@@ -128,7 +128,7 @@ export default function RecurrentTransactionsList({
     targetMonth: number,
     targetYear: number
   ): boolean => {
-    const startDate = new Date(transaction.startDate);
+    const startDate = new Date(transaction.startDate); // OK: Usando Date almacenado en DB
     const startMonth = startDate.getMonth() + 1; // 1-12
     const startYear = startDate.getFullYear();
 
@@ -142,7 +142,7 @@ export default function RecurrentTransactionsList({
 
     // Si hay fecha de fin y ya pasó, no debe ejecutarse
     if (transaction.endDate) {
-      const endDate = new Date(transaction.endDate);
+      const endDate = new Date(transaction.endDate); // OK: Usando Date almacenado en DB
       const endMonth = endDate.getMonth() + 1;
       const endYear = endDate.getFullYear();
       if (
