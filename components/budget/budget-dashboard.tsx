@@ -41,6 +41,8 @@ import {
   CheckCircle,
   Repeat,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { container } from "@/src/di/container";
@@ -121,6 +123,9 @@ export default function BudgetDashboard({
   const [showRecurrentList, setShowRecurrentList] = useState(false);
   const [editingRecurrentTransaction, setEditingRecurrentTransaction] =
     useState<RecurrentTransaction | null>(null);
+
+  // Estado para mostrar todas las transacciones
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   const { formatCurrency } = useCurrency();
 
@@ -1073,7 +1078,24 @@ export default function BudgetDashboard({
       {/* Recent Transactions */}
       <Card>
         <CardHeader>
-          <CardTitle>Transacciones Recientes</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Transacciones Recientes</CardTitle>
+            {budget.transactions.length > 5 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+                className="flex items-center gap-2"
+              >
+                {showAllTransactions ? "Ver menos" : "Ver todas"}
+                {showAllTransactions ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {budget.transactions.length === 0 ? (
@@ -1087,7 +1109,7 @@ export default function BudgetDashboard({
                   (a, b) =>
                     new Date(b.date).getTime() - new Date(a.date).getTime()
                 )
-                .slice(0, 10)
+                .slice(0, showAllTransactions ? undefined : 5)
                 .map((transaction) => {
                   const category = budget.categories.find(
                     (c) => c.id === transaction.categoryId
@@ -1095,29 +1117,77 @@ export default function BudgetDashboard({
                   return (
                     <div
                       key={transaction.id}
-                      className="flex justify-between items-center p-2 border rounded"
+                      className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium">
                           {transaction.description}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {category?.name} • {formatDate(transaction.date)}
                         </div>
                       </div>
-                      <div
-                        className={`font-semibold ${
-                          transaction.type === "income"
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}
-                        {formatCurrency({ amount: transaction.amount })}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`font-semibold ${
+                            transaction.type === "income"
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {transaction.type === "income" ? "+" : "-"}
+                          {formatCurrency({ amount: transaction.amount })}
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditTransaction(transaction)}
+                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                            title="Editar transacción"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              handleDeleteTransaction(transaction.id)
+                            }
+                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                            title="Eliminar transacción"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+
+              {/* Mostrar contador de transacciones */}
+              {budget.transactions.length > 0 && (
+                <div className="flex justify-between items-center pt-3 border-t text-sm text-muted-foreground">
+                  <span>
+                    {showAllTransactions
+                      ? `Mostrando todas las ${budget.transactions.length} transacciones`
+                      : `Mostrando ${Math.min(
+                          5,
+                          budget.transactions.length
+                        )} de ${budget.transactions.length} transacciones`}
+                  </span>
+                  {!showAllTransactions && budget.transactions.length > 5 && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => setShowAllTransactions(true)}
+                      className="p-0 h-auto text-primary"
+                    >
+                      Ver {budget.transactions.length - 5} más
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
