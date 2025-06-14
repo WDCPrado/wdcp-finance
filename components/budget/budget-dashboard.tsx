@@ -622,8 +622,9 @@ export default function BudgetDashboard({
   const handleRecurrentSuccess = () => {
     setShowRecurrentModal(false);
     setEditingRecurrentTransaction(null);
-    // Recargar datos si es necesario
+    // Recargar datos del dashboard
     onBudgetUpdated();
+    loadSummary();
   };
 
   const monthNames = [
@@ -1868,6 +1869,10 @@ export default function BudgetDashboard({
         onEditTransaction={handleEditRecurrentTransaction}
         currentMonth={budget.month}
         currentYear={budget.year}
+        onTransactionChange={() => {
+          onBudgetUpdated();
+          loadSummary();
+        }}
       />
     </div>
   );

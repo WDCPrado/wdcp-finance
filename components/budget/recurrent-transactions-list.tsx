@@ -23,6 +23,7 @@ import {
   Clock,
   Calendar,
   PlayCircle,
+  Info,
 } from "lucide-react";
 
 interface RecurrentTransactionsListProps {
@@ -31,6 +32,7 @@ interface RecurrentTransactionsListProps {
   onEditTransaction: (transaction: RecurrentTransaction) => void;
   currentMonth?: number;
   currentYear?: number;
+  onTransactionChange?: () => void;
 }
 
 export default function RecurrentTransactionsList({
@@ -39,6 +41,7 @@ export default function RecurrentTransactionsList({
   onEditTransaction,
   currentMonth,
   currentYear,
+  onTransactionChange,
 }: RecurrentTransactionsListProps) {
   const {
     getAllRecurrentTransactions,
@@ -196,12 +199,12 @@ export default function RecurrentTransactionsList({
       });
 
       if (result.success) {
-        toast.success(
-          `Transacción eliminada. ${result.deletedTransactionsCount} transacciones futuras también eliminadas.`
-        );
+        toast.success(`🗑️ Plantilla "${transaction.description}" eliminada`, {
+          description: `${result.deletedTransactionsCount} transacciones futuras también se eliminaron.`,
+        });
         loadTransactions();
       } else {
-        toast.error("Error al eliminar transacción");
+        toast.error("Error al eliminar plantilla");
       }
     } catch (err) {
       console.error("Error deleting transaction:", err);
@@ -227,14 +230,19 @@ export default function RecurrentTransactionsList({
 
       if (result.success) {
         toast.success(
-          `Transacción "${transaction.description}" ejecutada para ${currentMonth}/${currentYear}`
+          `✅ Transacción creada desde plantilla "${transaction.description}"`,
+          {
+            description: `Se creó la transacción para ${currentMonth}/${currentYear} basada en la plantilla recurrente`,
+          }
         );
         // Recargar para actualizar el estado
         loadTransactions();
         // Actualizar estado de ejecución
         checkExecutionStatusForTransactions(filteredTransactions);
+        // Notificar cambio al dashboard
+        onTransactionChange?.();
       } else {
-        toast.error("Error al ejecutar transacción", {
+        toast.error("Error al crear transacción desde plantilla", {
           description: result.error,
         });
       }
@@ -266,14 +274,19 @@ export default function RecurrentTransactionsList({
 
       if (result.success) {
         toast.success(
-          `Transacción "${transaction.description}" desejecutada para ${currentMonth}/${currentYear}`
+          `🗑️ Transacción eliminada: "${transaction.description}"`,
+          {
+            description: `Se eliminó la transacción de ${currentMonth}/${currentYear}. La plantilla sigue activa.`,
+          }
         );
         // Recargar para actualizar el estado
         loadTransactions();
         // Actualizar estado de ejecución
         checkExecutionStatusForTransactions(filteredTransactions);
+        // Notificar cambio al dashboard
+        onTransactionChange?.();
       } else {
-        toast.error("Error al desejectutar transacción", {
+        toast.error("Error al eliminar transacción", {
           description: result.error,
         });
       }
@@ -301,20 +314,22 @@ export default function RecurrentTransactionsList({
 
       if (result.success) {
         const monthInfo = `${currentMonth}/${currentYear}`;
-        toast.success(`Procesamiento completado para ${monthInfo}`, {
-          description: `${result.transactionsCreated} transacciones creadas, ${result.budgetsCreated} presupuestos creados, ${result.budgetsUpdated} presupuestos actualizados`,
+        toast.success(`🚀 Plantillas ejecutadas para ${monthInfo}`, {
+          description: `${result.transactionsCreated} transacciones creadas desde plantillas, ${result.budgetsCreated} presupuestos creados, ${result.budgetsUpdated} presupuestos actualizados`,
         });
 
         if (result.warnings && result.warnings.length > 0) {
-          toast.warning("Advertencias", {
+          toast.warning("Advertencias durante la ejecución", {
             description: result.warnings.join("\n"),
           });
         }
 
         // Recargar para actualizar el estado
         loadTransactions();
+        // Notificar cambio al dashboard
+        onTransactionChange?.();
       } else {
-        toast.error("Error en procesamiento", {
+        toast.error("Error al ejecutar plantillas", {
           description: result.error,
         });
       }
@@ -372,7 +387,7 @@ export default function RecurrentTransactionsList({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-green-600">
               <Repeat className="h-5 w-5" />
-              Transacciones Recurrentes - {monthYearText}
+              Plantillas de Transacciones Recurrentes - {monthYearText}
             </CardTitle>
             <div className="flex items-center gap-2">
               {currentMonth &&
@@ -383,10 +398,10 @@ export default function RecurrentTransactionsList({
                     disabled={loading || isLoadingList}
                     className="bg-blue-600 hover:bg-blue-700"
                     size="sm"
-                    title={`Procesar todas las transacciones para ${currentMonth}/${currentYear}`}
+                    title={`Ejecutar todas las plantillas para crear transacciones en ${currentMonth}/${currentYear}`}
                   >
                     <Clock className="h-4 w-4 mr-1" />
-                    Procesar Todas
+                    Ejecutar Todas
                   </Button>
                 )}
               <Button
@@ -399,19 +414,32 @@ export default function RecurrentTransactionsList({
               </Button>
             </div>
           </div>
-          <CardDescription>
-            {currentMonth && currentYear
-              ? `Transacciones que deben ejecutarse en ${getMonthName(
-                  currentMonth
-                )} ${currentYear}`
-              : "Gestiona tus transacciones que se repiten automáticamente"}
+          <CardDescription className="space-y-2">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-500 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-700 dark:text-blue-300">
+                  ¿Cómo funcionan las transacciones recurrentes?
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Estas son <strong>plantillas</strong> que generan
+                  transacciones reales cuando las ejecutas. Una plantilla puede
+                  crear múltiples transacciones (1:N).
+                  {currentMonth && currentYear
+                    ? ` Aquí puedes ejecutar las plantillas que corresponden a ${getMonthName(
+                        currentMonth
+                      )} ${currentYear}.`
+                    : " Crea plantillas que se ejecutarán automáticamente en sus fechas programadas."}
+                </p>
+              </div>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingList ? (
             <div className="flex justify-center py-8">
               <div className="text-muted-foreground">
-                Cargando transacciones...
+                Cargando plantillas...
               </div>
             </div>
           ) : displayTransactions.length === 0 ? (
@@ -419,20 +447,21 @@ export default function RecurrentTransactionsList({
               <Repeat className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-muted-foreground mb-2">
                 {currentMonth && currentYear
-                  ? `No hay transacciones recurrentes para ${getMonthName(
+                  ? `No hay plantillas para ejecutar en ${getMonthName(
                       currentMonth
                     )} ${currentYear}`
-                  : "No hay transacciones recurrentes"}
+                  : "No hay plantillas recurrentes"}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {currentMonth && currentYear
-                  ? "Las transacciones recurrentes se ejecutan según su intervalo configurado"
-                  : "Crea tu primera transacción recurrente usando el botón flotante"}
+                  ? "Las plantillas se ejecutan según su intervalo configurado"
+                  : "Crea tu primera plantilla recurrente usando el botón flotante"}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               {displayTransactions.map((transaction) => {
+                const isExecuted = executionStatus[transaction.id]?.executed;
                 return (
                   <Card key={transaction.id} className="border border-border">
                     <CardContent className="p-4">
@@ -452,6 +481,9 @@ export default function RecurrentTransactionsList({
                               {transaction.type === "income"
                                 ? "Ingreso"
                                 : "Gasto"}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                              📋 Plantilla
                             </span>
                           </div>
 
@@ -485,23 +517,33 @@ export default function RecurrentTransactionsList({
                               </div>
                             </div>
 
-                            <div>
-                              <span className="text-muted-foreground">
-                                Estado en {getMonthName(currentMonth || 1)}{" "}
-                                {currentYear}:
-                              </span>
-                              <div
-                                className={`font-medium ${
-                                  executionStatus[transaction.id]?.executed
-                                    ? "text-green-600"
-                                    : "text-gray-600"
-                                }`}
-                              >
-                                {executionStatus[transaction.id]?.executed
-                                  ? "✓ Ejecutada"
-                                  : "○ No ejecutada"}
+                            {currentMonth && currentYear && (
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Estado en {getMonthName(currentMonth)}{" "}
+                                  {currentYear}:
+                                </span>
+                                <div
+                                  className={`font-medium flex items-center gap-1 ${
+                                    isExecuted
+                                      ? "text-green-600"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {isExecuted ? (
+                                    <>
+                                      <span className="text-green-500">✓</span>
+                                      Transacción creada
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-gray-400">○</span>
+                                      Sin ejecutar
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
 
                           {transaction.endDate && (
@@ -518,8 +560,8 @@ export default function RecurrentTransactionsList({
                             currentYear &&
                             transaction.isActive && (
                               <>
-                                {executionStatus[transaction.id]?.executed ? (
-                                  // Botón para desejecutar
+                                {isExecuted ? (
+                                  // Botón para eliminar la transacción creada
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -531,7 +573,7 @@ export default function RecurrentTransactionsList({
                                       loading ||
                                       processingIndividual === transaction.id
                                     }
-                                    title={`Desejectutar para ${currentMonth}/${currentYear}`}
+                                    title={`Eliminar transacción creada para ${currentMonth}/${currentYear}`}
                                   >
                                     {processingIndividual === transaction.id ? (
                                       <Clock className="h-4 w-4 animate-spin" />
@@ -540,7 +582,7 @@ export default function RecurrentTransactionsList({
                                     )}
                                   </Button>
                                 ) : (
-                                  // Botón para ejecutar
+                                  // Botón para crear transacción desde plantilla
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -552,7 +594,7 @@ export default function RecurrentTransactionsList({
                                       loading ||
                                       processingIndividual === transaction.id
                                     }
-                                    title={`Ejecutar para ${currentMonth}/${currentYear}`}
+                                    title={`Crear transacción desde plantilla para ${currentMonth}/${currentYear}`}
                                   >
                                     {processingIndividual === transaction.id ? (
                                       <Clock className="h-4 w-4 animate-spin" />
@@ -569,6 +611,7 @@ export default function RecurrentTransactionsList({
                             variant="outline"
                             onClick={() => onEditTransaction(transaction)}
                             className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                            title="Editar plantilla"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -579,6 +622,7 @@ export default function RecurrentTransactionsList({
                             onClick={() => handleDelete(transaction)}
                             className="border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
                             disabled={loading}
+                            title="Eliminar plantilla (y todas las transacciones futuras)"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

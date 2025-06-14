@@ -1,91 +1,212 @@
-# Transacciones Recurrentes
+# Plantillas de Transacciones Recurrentes
 
-Esta funcionalidad permite crear transacciones que se repiten automáticamente en intervalos específicos (mensual, trimestral, semestral, anual o personalizado).
+## Concepto Principal
 
-## Características Implementadas
+Las **transacciones recurrentes** son **PLANTILLAS** que te permiten crear transacciones reales de forma automática en intervalos específicos.
 
-### Tipos y Interfaces
+### Relación Plantilla → Transacciones (1:N)
 
-- `RecurrentTransaction`: Entidad principal para transacciones recurrentes
-- `RecurrenceInterval`: Configuración de intervalos de recurrencia
-- Extensión de `Transaction` con campos `isRecurrent` y `recurrenceId`
+```
+Plantilla "Salario"          →  Transacción "Salario - Enero"
+(Intervalo: Mensual)         →  Transacción "Salario - Febrero"
+                             →  Transacción "Salario - Marzo"
+                             →  ...
+```
 
-### Casos de Uso
+### ¿Cómo Funciona?
 
-1. **CreateRecurrentTransactionUseCase**: Crear nueva transacción recurrente
-2. **ProcessRecurrentTransactionsUseCase**: Procesar transacciones pendientes
-3. **ManageRecurrentTransactionsUseCase**: Gestionar transacciones existentes
+1. **Crear Plantilla**: Defines una plantilla con monto, descripción, categoría e intervalo
+2. **Ejecutar Plantilla**: Cuando llegue el momento, ejecutas la plantilla para crear la transacción real
+3. **Transacción Creada**: Se crea una transacción real en tu presupuesto
+4. **Eliminar si es Necesario**: Puedes eliminar la transacción creada sin afectar la plantilla
 
-### Hook Principal
+## Flujo de Trabajo
 
-`useRecurrentTransactions()` - Hook React que expone toda la funcionalidad
-
-## Cómo Usar
+### 1. Crear Plantilla
 
 ```typescript
-import { useRecurrentTransactions } from "./hooks/useRecurrentTransactions";
-import { RECURRENCE_INTERVALS } from "./types/recurrence";
-
-function MiComponente() {
-  const {
-    createRecurrentTransaction,
-    processRecurrentTransactions,
-    getAllRecurrentTransactions,
-    loading,
-    error,
-  } = useRecurrentTransactions();
-
-  // Crear salario mensual
-  const crearSalario = async () => {
-    const result = await createRecurrentTransaction({
-      type: "income",
-      amount: 3000,
-      description: "Salario mensual",
-      categoryId: "categoria-salario-id",
-      startDate: new Date(),
-      interval: RECURRENCE_INTERVALS.MONTHLY,
-      createFutureMonths: 12,
-    });
-  };
-
-  // Procesar transacciones pendientes
-  const procesarPendientes = async () => {
-    await processRecurrentTransactions();
-  };
-}
+// Ejemplo: Crear plantilla de salario mensual
+const plantilla = {
+  type: "income",
+  amount: 3000,
+  description: "Salario mensual",
+  categoryId: "salarios",
+  interval: "monthly", // Cada mes
+  startDate: new Date("2024-01-01"),
+};
 ```
+
+### 2. Ejecutar Plantilla
+
+```typescript
+// Cuando llegue el momento (manualmente o automáticamente)
+processIndividualRecurrentTransaction({
+  recurrenceId: plantilla.id,
+  targetMonth: 1,
+  targetYear: 2024,
+});
+```
+
+### 3. Resultado
+
+- ✅ Se crea una transacción real: "Salario mensual - Enero 2024"
+- ✅ La plantilla sigue activa para próximos meses
+- ✅ Puedes eliminar la transacción sin afectar la plantilla
+
+## Estados de una Plantilla
+
+### 🟢 Activa
+
+- La plantilla está funcionando
+- Puede generar nuevas transacciones
+
+### 🔴 Inactiva
+
+- La plantilla está pausada
+- No generará transacciones hasta reactivarla
+
+### ⏰ Próxima Ejecución
+
+- Fecha calculada automáticamente según el intervalo
+- Puedes ejecutar manualmente antes de la fecha
 
 ## Intervalos Disponibles
 
-- `MONTHLY`: Cada mes
-- `QUARTERLY`: Cada 3 meses
-- `SEMI_ANNUAL`: Cada 6 meses
-- `ANNUAL`: Cada 12 meses
-- Personalizado: Usar `createCustomInterval(meses)`
+- **Mensual**: Cada mes (1 mes)
+- **Trimestral**: Cada 3 meses
+- **Semestral**: Cada 6 meses
+- **Anual**: Cada 12 meses
+- **Personalizado**: Cada X meses (que tú defines)
 
 ## Funcionalidades Principales
 
-1. **Crear Transacción Recurrente**: Define una transacción que se repetirá automáticamente
-2. **Procesamiento Automático**: Crea presupuestos y transacciones para meses futuros
-3. **Gestión Completa**: Pausar, reanudar, actualizar o eliminar recurrencias
-4. **Validaciones**: Controla fechas, montos y configuraciones
-5. **Template de Presupuestos**: Usa el presupuesto base para crear presupuestos futuros
+### ✅ Crear Plantillas
 
-## Arquitectura
+- Define monto, descripción, categoría
+- Establece intervalo de recurrencia
+- Configura fecha de inicio y fin (opcional)
 
-La implementación sigue el patrón Clean Architecture del proyecto:
+### ✅ Ejecutar Plantillas
 
-- **Entities**: Tipos en `src/types/`
-- **Use Cases**: Lógica de negocio en `src/use-cases/budget/`
-- **Interface Adapters**: Hook en `src/hooks/`
-- **Infrastructure**: Repositorio en `src/repositories/`
-- **DI Container**: Inyección de dependencias en `src/di/`
+- **Manual**: Ejecuta una plantilla específica para un mes
+- **Automático**: Ejecuta todas las plantillas pendientes para un mes
+- **Verificación**: Revisa si una plantilla ya fue ejecutada
 
-## Utilidades
+### ✅ Gestionar Transacciones Creadas
 
-El archivo `src/utils/recurrence.ts` contiene funciones auxiliares para:
+- **Ver Estado**: Saber si una plantilla ya creó su transacción
+- **Eliminar**: Borrar una transacción creada (sin afectar la plantilla)
+- **Regenerar**: Volver a crear una transacción eliminada
 
-- Calcular fechas de ejecución
-- Validar configuraciones
-- Formatear intervalos
-- Gestionar estados de recurrencia
+### ✅ Administrar Plantillas
+
+- **Editar**: Modificar monto, descripción, etc.
+- **Eliminar**: Borrar plantilla y todas sus transacciones futuras
+- **Activar/Desactivar**: Pausar o reanudar una plantilla
+
+## Casos de Uso Comunes
+
+### 💰 Ingresos Recurrentes
+
+- Salario mensual
+- Freelance quincenal
+- Renta de propiedades
+- Dividendos trimestrales
+
+### 💸 Gastos Recurrentes
+
+- Renta mensual
+- Servicios (luz, agua, internet)
+- Suscripciones
+- Seguros anuales
+
+### 💡 Ejemplo Práctico
+
+```typescript
+// 1. Crear plantilla de renta
+const plantillaRenta = {
+  type: "expense",
+  amount: 1500,
+  description: "Renta del apartamento",
+  categoryId: "vivienda",
+  interval: "monthly",
+};
+
+// 2. Al inicio de cada mes, ejecutar:
+// - Automáticamente: processRecurrentTransactions()
+// - Manualmente: processIndividualRecurrentTransaction()
+
+// 3. Resultado: Transacción "Renta del apartamento - Enero 2024"
+
+// 4. Si necesitas eliminar la transacción:
+// unexecuteRecurrentTransaction() // Solo elimina la transacción, no la plantilla
+```
+
+## Componentes Principales
+
+### `<RecurrentTransactionsList>`
+
+- Lista todas las plantillas
+- Muestra estado de ejecución por mes
+- Botones para ejecutar/eliminar transacciones
+
+### `<RecurrentTransactionModal>`
+
+- Crear nuevas plantillas
+- Editar plantillas existentes
+- Configurar intervalos y fechas
+
+### `useRecurrentTransactions()`
+
+- Hook principal para toda la funcionalidad
+- Métodos para crear, ejecutar, eliminar plantillas
+- Estado de carga y errores
+
+## Arquitectura Técnica
+
+### Casos de Uso
+
+1. **CreateRecurrentTransactionUseCase**: Crear plantillas
+2. **ProcessRecurrentTransactionsUseCase**: Ejecutar plantillas
+3. **ManageRecurrentTransactionsUseCase**: Administrar plantillas
+
+### Repositorio
+
+- **BudgetRepository**: Almacena plantillas y transacciones
+- Relación clara entre plantillas y transacciones generadas
+
+### Tipos
+
+- **RecurrentTransaction**: Estructura de la plantilla
+- **Transaction**: Transacción real generada (tiene `recurrenceId`)
+
+## Preguntas Frecuentes
+
+### ❓ ¿Qué pasa si ejecuto una plantilla dos veces?
+
+- La segunda ejecución detecta que ya existe y muestra una advertencia
+- No se crean transacciones duplicadas
+
+### ❓ ¿Puedo modificar una transacción creada?
+
+- Las transacciones creadas son normales, puedes editarlas o eliminarlas
+- Los cambios no afectan la plantilla original
+
+### ❓ ¿Qué pasa si elimino una plantilla?
+
+- Se elimina la plantilla
+- Se eliminan todas las transacciones futuras generadas por esa plantilla
+- Las transacciones pasadas permanecen
+
+### ❓ ¿Puedo pausar una plantilla?
+
+- Sí, marca `isActive: false`
+- La plantilla no generará nuevas transacciones hasta reactivarla
+
+## Beneficios
+
+✅ **Automatización**: No olvides transacciones recurrentes
+✅ **Flexibilidad**: Ejecuta cuando quieras, no solo automáticamente
+✅ **Control**: Elimina transacciones sin afectar plantillas
+✅ **Organización**: Separa plantillas de transacciones reales
+✅ **Escalabilidad**: Una plantilla genera múltiples transacciones

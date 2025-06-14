@@ -267,7 +267,7 @@ export default function RecurrentTransactionModal({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-green-600">
               <Repeat className="h-5 w-5" />
-              {editingTransaction ? "Editar" : "Crear"} Transacción Recurrente
+              {editingTransaction ? "Editar" : "Crear"} Plantilla Recurrente
             </CardTitle>
             <Button
               variant="ghost"
@@ -280,8 +280,8 @@ export default function RecurrentTransactionModal({
           </div>
           <CardDescription>
             {editingTransaction
-              ? "Modifica los datos de la transacción recurrente"
-              : "Crea una transacción que se repetirá automáticamente"}
+              ? "Modifica los datos de la plantilla recurrente"
+              : "Crea una plantilla que generará transacciones automáticamente"}
           </CardDescription>
         </CardHeader>
         <CardContent>
