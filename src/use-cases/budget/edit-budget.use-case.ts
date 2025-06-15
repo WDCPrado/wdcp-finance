@@ -113,14 +113,36 @@ export class EditBudgetUseCase {
       }
 
       if (categories !== undefined) {
+        console.log(
+          "EditBudgetUseCase - Categories to update:",
+          categories.length,
+          categories.map((c) => ({ id: c.id, name: c.name, userId: c.userId }))
+        );
         updates.categories = categories;
       }
+
+      console.log("EditBudgetUseCase - Updates to apply:", {
+        name: updates.name,
+        totalIncome: updates.totalIncome,
+        categoriesCount: updates.categories?.length,
+      });
 
       // Actualizar el presupuesto
       const updatedBudget = await this.budgetRepository.updateMonthlyBudget({
         userId,
         id: budgetId,
         updates,
+      });
+
+      console.log("EditBudgetUseCase - Updated budget result:", {
+        success: !!updatedBudget,
+        budgetId: updatedBudget?.id,
+        categoriesCount: updatedBudget?.categories?.length,
+        categories: updatedBudget?.categories?.map((c) => ({
+          id: c.id,
+          name: c.name,
+          userId: c.userId,
+        })),
       });
 
       if (!updatedBudget) {

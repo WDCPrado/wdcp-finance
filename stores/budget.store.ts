@@ -137,6 +137,7 @@ export const useBudgetStore = create<BudgetState>()(
           createdAt: new Date(),
           updatedAt: new Date(),
           isTemplate: false,
+          userId: "", // Será establecido por el repositorio
         };
 
         set((state) => ({
@@ -161,13 +162,49 @@ export const useBudgetStore = create<BudgetState>()(
         const { budgets } = get();
         const index = budgets.findIndex((budget) => budget.id === id);
 
-        if (index === -1) return null;
+        console.log("Store.updateMonthlyBudget - Input:", {
+          id,
+          index,
+          updatesKeys: Object.keys(updates),
+          categoriesCount: updates.categories?.length,
+          categories: updates.categories?.map((c) => ({
+            id: c.id,
+            name: c.name,
+            userId: c.userId || "",
+          })),
+        });
+
+        if (index === -1) {
+          console.log("Store.updateMonthlyBudget - Budget not found in store");
+          return null;
+        }
+
+        const currentBudget = budgets[index];
+        console.log("Store.updateMonthlyBudget - Current budget:", {
+          budgetId: currentBudget.id,
+          currentCategoriesCount: currentBudget.categories.length,
+          currentCategories: currentBudget.categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            userId: c.userId,
+          })),
+        });
 
         const updatedBudget = {
           ...budgets[index],
           ...updates,
           updatedAt: new Date(),
         };
+
+        console.log("Store.updateMonthlyBudget - Updated budget:", {
+          budgetId: updatedBudget.id,
+          newCategoriesCount: updatedBudget.categories.length,
+          newCategories: updatedBudget.categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            userId: c.userId,
+          })),
+        });
 
         const newBudgets = [...budgets];
         newBudgets[index] = updatedBudget;

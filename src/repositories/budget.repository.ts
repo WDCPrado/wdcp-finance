@@ -206,15 +206,48 @@ export class BudgetRepository implements IBudgetRepository {
     id: string;
     updates: Partial<MonthlyBudget>;
   }): Promise<MonthlyBudget | null> {
+    console.log("BudgetRepository.updateMonthlyBudget - Input:", {
+      userId,
+      id,
+      updatesKeys: Object.keys(updates),
+      categoriesCount: updates.categories?.length,
+      categories: updates.categories?.map((c) => ({
+        id: c.id,
+        name: c.name,
+        userId: c.userId,
+      })),
+    });
+
     // Verificar que el presupuesto pertenece al usuario
     const budget = await this.getBudgets({ userId });
     const targetBudget = budget.find((b) => b.id === id);
 
     if (!targetBudget) {
+      console.log(
+        "BudgetRepository.updateMonthlyBudget - Budget not found for user"
+      );
       return null;
     }
 
-    return this.getStore().updateMonthlyBudget({ id, updates });
+    console.log("BudgetRepository.updateMonthlyBudget - Target budget found:", {
+      budgetId: targetBudget.id,
+      currentCategoriesCount: targetBudget.categories.length,
+    });
+
+    const result = this.getStore().updateMonthlyBudget({ id, updates });
+
+    console.log("BudgetRepository.updateMonthlyBudget - Store result:", {
+      success: !!result,
+      budgetId: result?.id,
+      categoriesCount: result?.categories?.length,
+      categories: result?.categories?.map((c) => ({
+        id: c.id,
+        name: c.name,
+        userId: c.userId,
+      })),
+    });
+
+    return result;
   }
 
   // Eliminar presupuesto

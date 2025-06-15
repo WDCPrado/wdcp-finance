@@ -180,7 +180,9 @@ export default function BudgetDashboard({
     type: "income" | "expense";
   }) => {
     try {
-      const category: Omit<Category, "userId"> = {
+      console.log("Adding category with data:", categoryData);
+
+      const category: Category = {
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
         name: categoryData.name.trim(),
         description: categoryData.description.trim(),
@@ -188,9 +190,18 @@ export default function BudgetDashboard({
         icon: categoryData.icon,
         budgetAmount: categoryData.budgetAmount,
         type: categoryData.type,
+        userId: budget.userId, // Usar el userId del presupuesto
       };
 
-      const updatedCategories = [...budget.categories, category as Category];
+      console.log("Created category:", category);
+
+      const updatedCategories = [...budget.categories, category];
+      console.log("Updated categories:", updatedCategories);
+
+      // Calcular el nuevo totalIncome basado en las categorías de ingreso
+      const totalIncome = updatedCategories
+        .filter((cat) => isIncomeCategory(cat))
+        .reduce((sum, cat) => sum + (cat.budgetAmount || 0), 0);
 
       const response = await fetch("/api/budget/update", {
         method: "PUT",
@@ -200,17 +211,21 @@ export default function BudgetDashboard({
         body: JSON.stringify({
           budgetId: budget.id,
           categories: updatedCategories,
+          totalIncome: totalIncome,
         }),
       });
 
       const result = await response.json();
+      console.log("API Response:", { status: response.status, result });
 
       if (response.ok) {
+        console.log("Category added successfully");
         setShowAddCategory(false);
         onBudgetUpdated();
         loadSummary();
         toast.success("Categoría agregada exitosamente");
       } else {
+        console.error("Error adding category:", result);
         toast.error("Error al agregar categoría", {
           description: result.error,
         });
