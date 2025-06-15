@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { container } from "@/src/di/container";
+
 import { MonthlyBudget, Category } from "@/src/types/budget";
 import {
   ALL_DEFAULT_CATEGORIES,
@@ -30,6 +30,7 @@ import {
 } from "@/src/constants/categories";
 import { useCurrency } from "@/src/hooks/useCurrency";
 import { Plus, Trash2, Save, DollarSign, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 interface EditBudgetModalProps {
   budget: MonthlyBudget;
@@ -101,7 +102,7 @@ export default function EditBudgetModal({
   const addCategory = () => {
     if (!newCategory.name.trim() || newCategory.budgetAmount < 0) return;
 
-    const category: Category = {
+    const category: Omit<Category, "userId"> = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name: newCategory.name.trim(),
       description: newCategory.description.trim(),
@@ -111,7 +112,7 @@ export default function EditBudgetModal({
       type: newCategory.type,
     };
 
-    setCategories([...categories, category]);
+    setCategories([...categories, category as Category]);
     setNewCategory({
       name: "",
       description: "",
@@ -166,25 +167,40 @@ export default function EditBudgetModal({
         return;
       }
 
-      const result = await container.editBudgetUseCase.execute({
-        budgetId: budget.id,
-        name: budgetName,
-        totalIncome: totalIncomeFromCategories,
-        categories: categories.filter((cat) => cat.budgetAmount >= 0), // Allow 0 budget amounts
+      const response = await fetch("/api/budget/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          name: budgetName,
+          totalIncome: totalIncomeFromCategories,
+          categories: categories.filter((cat) => cat.budgetAmount >= 0), // Allow 0 budget amounts
+        }),
       });
 
-      if (!result.success) {
+      const result = await response.json();
+
+      if (!response.ok) {
         setError(result.error || "Error desconocido");
+        toast.error("Error al actualizar presupuesto", {
+          description: result.error || "Error desconocido",
+        });
         return;
       }
 
       if (result.budget) {
+        toast.success("Presupuesto actualizado exitosamente");
         onSuccess();
         onClose();
       }
     } catch (error) {
       console.error("Error editing budget:", error);
       setError("Error inesperado al editar el presupuesto");
+      toast.error("Error inesperado", {
+        description: "Error al editar el presupuesto",
+      });
     } finally {
       setIsLoading(false);
     }
