@@ -1,6 +1,10 @@
 import { IBudgetRepository } from "../../interfaces/budget-repository.interface";
 import { RecurrentTransaction } from "../../types/budget";
 
+export interface GetRecurrentTransactionsRequest {
+  userId: string;
+}
+
 export interface GetRecurrentTransactionsResponse {
   success: boolean;
   recurrentTransactions: RecurrentTransaction[];
@@ -8,6 +12,7 @@ export interface GetRecurrentTransactionsResponse {
 }
 
 export interface UpdateRecurrentTransactionRequest {
+  userId: string;
   id: string;
   updates: {
     amount?: number;
@@ -25,6 +30,7 @@ export interface UpdateRecurrentTransactionResponse {
 }
 
 export interface DeleteRecurrentTransactionRequest {
+  userId: string;
   id: string;
   deleteFutureTransactions?: boolean; // Si eliminar también las transacciones futuras generadas
 }
@@ -38,10 +44,20 @@ export interface DeleteRecurrentTransactionResponse {
 export class ManageRecurrentTransactionsUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
-  async getAllRecurrentTransactions(): Promise<GetRecurrentTransactionsResponse> {
+  async getAllRecurrentTransactions({
+    userId,
+  }: GetRecurrentTransactionsRequest): Promise<GetRecurrentTransactionsResponse> {
     try {
+      if (!userId) {
+        return {
+          success: false,
+          recurrentTransactions: [],
+          error: "UserId es requerido",
+        };
+      }
+
       const recurrentTransactions =
-        await this.budgetRepository.getRecurrentTransactions();
+        await this.budgetRepository.getRecurrentTransactions({ userId });
       return {
         success: true,
         recurrentTransactions,
@@ -55,10 +71,20 @@ export class ManageRecurrentTransactionsUseCase {
     }
   }
 
-  async getActiveRecurrentTransactions(): Promise<GetRecurrentTransactionsResponse> {
+  async getActiveRecurrentTransactions({
+    userId,
+  }: GetRecurrentTransactionsRequest): Promise<GetRecurrentTransactionsResponse> {
     try {
+      if (!userId) {
+        return {
+          success: false,
+          recurrentTransactions: [],
+          error: "UserId es requerido",
+        };
+      }
+
       const recurrentTransactions =
-        await this.budgetRepository.getActiveRecurrentTransactions();
+        await this.budgetRepository.getActiveRecurrentTransactions({ userId });
       return {
         success: true,
         recurrentTransactions,
@@ -73,10 +99,18 @@ export class ManageRecurrentTransactionsUseCase {
   }
 
   async updateRecurrentTransaction({
+    userId,
     id,
     updates,
   }: UpdateRecurrentTransactionRequest): Promise<UpdateRecurrentTransactionResponse> {
     try {
+      if (!userId) {
+        return {
+          success: false,
+          error: "UserId es requerido",
+        };
+      }
+
       // Validaciones de negocio
       if (updates.amount !== undefined && updates.amount <= 0) {
         return {
@@ -101,6 +135,7 @@ export class ManageRecurrentTransactionsUseCase {
 
       const recurrentTransaction =
         await this.budgetRepository.updateRecurrentTransaction({
+          userId,
           id,
           updates: {
             ...updates,
@@ -129,19 +164,32 @@ export class ManageRecurrentTransactionsUseCase {
   }
 
   async deleteRecurrentTransaction({
+    userId,
     id,
     deleteFutureTransactions = false,
   }: DeleteRecurrentTransactionRequest): Promise<DeleteRecurrentTransactionResponse> {
     try {
+      if (!userId) {
+        return {
+          success: false,
+          deletedTransactionsCount: 0,
+          error: "UserId es requerido",
+        };
+      }
+
       let deletedTransactionsCount = 0;
 
       // Si se solicita eliminar transacciones futuras, eliminarlas primero
       if (deleteFutureTransactions) {
-        deletedTransactionsCount = await this.deleteFutureTransactions(id);
+        deletedTransactionsCount = await this.deleteFutureTransactions(
+          userId,
+          id
+        );
       }
 
       // Eliminar la transacción recurrente
       const success = await this.budgetRepository.deleteRecurrentTransaction({
+        userId,
         id,
       });
 
@@ -167,6 +215,7 @@ export class ManageRecurrentTransactionsUseCase {
   }
 
   private async deleteFutureTransactions(
+    userId: string,
     recurrenceId: string
   ): Promise<number> {
     try {
@@ -174,8 +223,8 @@ export class ManageRecurrentTransactionsUseCase {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Obtener todos los presupuestos
-      const budgets = await this.budgetRepository.getBudgets();
+      // Obtener todos los presupuestos del usuario
+      const budgets = await this.budgetRepository.getBudgets({ userId });
 
       for (const budget of budgets) {
         // Buscar transacciones relacionadas con la recurrencia que sean futuras
@@ -186,6 +235,7 @@ export class ManageRecurrentTransactionsUseCase {
         // Eliminar cada transacción futura
         for (const transaction of futureTransactions) {
           const deleted = await this.budgetRepository.deleteTransaction({
+            userId,
             budgetId: budget.id,
             transactionId: transaction.id,
           });
@@ -202,19 +252,30 @@ export class ManageRecurrentTransactionsUseCase {
     }
   }
 
-  async pauseRecurrentTransaction(
-    id: string
-  ): Promise<UpdateRecurrentTransactionResponse> {
+  // Métodos de conveniencia para pausar/reanudar
+  async pauseRecurrentTransaction({
+    userId,
+    id,
+  }: {
+    userId: string;
+    id: string;
+  }): Promise<UpdateRecurrentTransactionResponse> {
     return this.updateRecurrentTransaction({
+      userId,
       id,
       updates: { isActive: false },
     });
   }
 
-  async resumeRecurrentTransaction(
-    id: string
-  ): Promise<UpdateRecurrentTransactionResponse> {
+  async resumeRecurrentTransaction({
+    userId,
+    id,
+  }: {
+    userId: string;
+    id: string;
+  }): Promise<UpdateRecurrentTransactionResponse> {
     return this.updateRecurrentTransaction({
+      userId,
       id,
       updates: { isActive: true },
     });

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { container } from "@/src/di/container";
 import { MonthlyBudget } from "@/src/types/budget";
 import CreateBudgetForm from "@/components/budget/create-budget-form";
 import BudgetDashboard from "@/components/budget/budget-dashboard";
@@ -24,20 +23,24 @@ export default function DashboardPage() {
   const loadBudgetForMonth = async ({
     month,
     year,
+    updateLoading = true,
   }: {
     month: number;
     year: number;
+    updateLoading?: boolean;
   }) => {
-    setIsLoading(true);
+    if (updateLoading) {
+      setIsLoading(true);
+    }
     setError("");
 
     try {
-      const result = await container.getBudgetByMonthUseCase.execute({
-        month,
-        year,
-      });
+      const response = await fetch(
+        `/api/budget/by-month?month=${month}&year=${year}`
+      );
+      const result = await response.json();
 
-      if (!result.success) {
+      if (!response.ok) {
         setError(result.error || "Error al cargar el presupuesto");
         return;
       }
@@ -48,16 +51,15 @@ export default function DashboardPage() {
         setShowCreateForm(false);
       } else {
         setCurrentBudget(null);
-        // Verificar si es primera vez o si hay presupuestos anteriores
-        const allBudgets = await container.budgetRepository.getBudgets();
-        setIsFirstTime(allBudgets.length === 0);
         setShowCreateForm(false);
       }
     } catch (error) {
       console.error("Error loading budget for month:", error);
       setError("Error inesperado al cargar el presupuesto");
     } finally {
-      setIsLoading(false);
+      if (updateLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -86,13 +88,18 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const result = await container.budgetRepository.createFromPreviousMonth({
-        month,
-        year,
+      const response = await fetch("/api/budget/create-from-previous", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ month, year }),
       });
 
-      if (result) {
-        setCurrentBudget(result);
+      const result = await response.json();
+
+      if (response.ok && result.budget) {
+        setCurrentBudget(result.budget);
         setShowCreateForm(false);
       } else {
         // No hay presupuesto anterior, mostrar formulario
@@ -125,9 +132,15 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const allBudgets = await container.budgetRepository.getBudgets();
+      const response = await fetch("/api/budget/list");
+      const result = await response.json();
 
-      if (allBudgets.length === 0) {
+      if (!response.ok) {
+        setError(result.error || "Error al cargar presupuestos");
+        return;
+      }
+
+      if (result.budgets.length === 0) {
         // No hay más presupuestos, volver al estado inicial
         setCurrentBudget(null);
         setIsFirstTime(true);
@@ -135,10 +148,12 @@ export default function DashboardPage() {
         // Mantener mes/año actual
       } else {
         // Encontrar el presupuesto más reciente
-        const mostRecentBudget = allBudgets.sort((a, b) => {
-          if (a.year !== b.year) return b.year - a.year;
-          return b.month - a.month;
-        })[0];
+        const mostRecentBudget = result.budgets.sort(
+          (a: MonthlyBudget, b: MonthlyBudget) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+          }
+        )[0];
 
         // Cambiar al mes del presupuesto más reciente
         setCurrentMonth(mostRecentBudget.month);
@@ -157,8 +172,39 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const initializeDashboard = async () => {
-      // Cargar el presupuesto del mes actual
-      await loadBudgetForMonth({ month: currentMonth, year: currentYear });
+      setIsLoading(true);
+      setError("");
+
+      try {
+        // Primero verificar si hay presupuestos existentes
+        const allBudgetsResponse = await fetch("/api/budget/list");
+        const allBudgetsResult = await allBudgetsResponse.json();
+
+        if (!allBudgetsResponse.ok) {
+          setError(allBudgetsResult.error || "Error al cargar presupuestos");
+          return;
+        }
+
+        if (allBudgetsResult.budgets.length === 0) {
+          // No hay presupuestos, es primera vez
+          setIsFirstTime(true);
+          setCurrentBudget(null);
+          setShowCreateForm(false);
+        } else {
+          // Hay presupuestos, intentar cargar el del mes actual
+          setIsFirstTime(false);
+          await loadBudgetForMonth({
+            month: currentMonth,
+            year: currentYear,
+            updateLoading: false,
+          });
+        }
+      } catch (error) {
+        console.error("Error initializing dashboard:", error);
+        setError("Error al inicializar el dashboard");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     initializeDashboard();
@@ -201,15 +247,18 @@ export default function DashboardPage() {
               strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="lucide lucide-github"
             >
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 4 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8 18.13V22" />
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
             </svg>
             GitHub
           </Button>
         </Link>
       </div>
-      {/* Navegador de meses */}
+
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Dashboard Financiero</h1>
+      </div>
+
       <MonthNavigator
         currentMonth={currentMonth}
         currentYear={currentYear}
@@ -218,61 +267,69 @@ export default function DashboardPage() {
         isLoading={isLoading}
       />
 
-      {/* Contenido principal */}
-      {isLoading ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="text-lg">Cargando...</div>
+      {isLoading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
-      ) : showCreateForm || (isFirstTime && !currentBudget) ? (
-        <div>
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold mb-2">
-              {isFirstTime
-                ? "Control de Gastos Personal"
-                : `Presupuesto para ${currentMonth}/${currentYear}`}
-            </h1>
-            <p className="text-gray-600">
-              {isFirstTime
-                ? "Bienvenido, comienza creando tu primer presupuesto mensual"
-                : "Crea un nuevo presupuesto para este mes"}
-            </p>
-          </div>
-          <CreateBudgetForm onSuccess={handleBudgetCreated} />
-        </div>
-      ) : currentBudget ? (
-        <BudgetDashboard
-          budget={currentBudget}
-          onBudgetUpdated={handleBudgetUpdated}
-          onBudgetDeleted={handleBudgetDeleted}
-        />
-      ) : (
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold mb-4">
-            Sin presupuesto para este mes
+      )}
+
+      {!isLoading && isFirstTime && (
+        <div className="text-center py-8">
+          <h2 className="text-2xl font-bold mb-4">
+            ¡Bienvenido a tu Dashboard Financiero!
           </h2>
           <p className="text-gray-600 mb-6">
-            No hay un presupuesto creado para {currentMonth}/{currentYear}
+            Parece que es tu primera vez aquí. Crea tu primer presupuesto
+            mensual para comenzar a administrar tus finanzas.
+          </p>
+          <Button
+            onClick={handleShowCreateForm}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            Crear Mi Primer Presupuesto
+          </Button>
+        </div>
+      )}
+
+      {!isLoading && !isFirstTime && !currentBudget && (
+        <div className="text-center py-8">
+          <h2 className="text-2xl font-bold mb-4">
+            No hay presupuesto para {currentMonth}/{currentYear}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            ¿Te gustaría crear uno basado en el mes anterior o crear uno nuevo?
           </p>
           <div className="space-x-4">
-            <button
+            <Button
               onClick={() =>
                 handleCreateBudgetFromPrevious({
                   month: currentMonth,
                   year: currentYear,
                 })
               }
-              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+              className="bg-green-500 hover:bg-green-600"
             >
-              Crear desde mes anterior
-            </button>
-            <button
+              Crear desde Mes Anterior
+            </Button>
+            <Button
               onClick={handleShowCreateForm}
-              className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+              variant="outline"
+              className="border-blue-500 text-blue-500 hover:bg-blue-50"
             >
-              Crear nuevo
-            </button>
+              Crear Nuevo Presupuesto
+            </Button>
           </div>
         </div>
+      )}
+
+      {showCreateForm && <CreateBudgetForm onSuccess={handleBudgetCreated} />}
+
+      {!isLoading && currentBudget && (
+        <BudgetDashboard
+          budget={currentBudget}
+          onBudgetUpdated={handleBudgetUpdated}
+          onBudgetDeleted={handleBudgetDeleted}
+        />
       )}
     </div>
   );

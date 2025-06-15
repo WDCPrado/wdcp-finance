@@ -1,6 +1,10 @@
 import { IBudgetRepository } from "../../interfaces/budget-repository.interface";
 import { MonthlyBudget, BudgetSummary } from "../../types/budget";
 
+export interface GetCurrentBudgetRequest {
+  userId: string;
+}
+
 export interface GetCurrentBudgetResponse {
   success: boolean;
   budget?: MonthlyBudget;
@@ -12,14 +16,18 @@ export interface GetCurrentBudgetResponse {
 export class GetCurrentBudgetUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
-  async execute(): Promise<GetCurrentBudgetResponse> {
+  async execute(
+    request: GetCurrentBudgetRequest
+  ): Promise<GetCurrentBudgetResponse> {
     try {
-      // Intentar obtener el presupuesto actual
-      let budget = await this.budgetRepository.getCurrentBudget();
+      const { userId } = request;
+
+      // Intentar obtener el presupuesto actual del usuario
+      let budget = await this.budgetRepository.getCurrentBudget({ userId });
 
       // Si no existe, verificar si es primera vez
       if (!budget) {
-        const allBudgets = await this.budgetRepository.getBudgets();
+        const allBudgets = await this.budgetRepository.getBudgets({ userId });
 
         if (allBudgets.length === 0) {
           // Primera vez usando la aplicación
@@ -34,6 +42,7 @@ export class GetCurrentBudgetUseCase {
           const currentYear = now.getFullYear();
 
           budget = await this.budgetRepository.createFromPreviousMonth({
+            userId,
             month: currentMonth,
             year: currentYear,
           });
@@ -49,6 +58,7 @@ export class GetCurrentBudgetUseCase {
 
       // Obtener resumen del presupuesto
       const summary = await this.budgetRepository.getBudgetSummary({
+        userId,
         budgetId: budget.id,
       });
 

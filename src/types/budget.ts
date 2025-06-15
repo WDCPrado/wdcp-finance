@@ -1,3 +1,12 @@
+export interface User {
+  id: string;
+  email: string;
+  password: string;
+  name?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -6,6 +15,7 @@ export interface Category {
   icon: string;
   budgetAmount: number;
   type: "income" | "expense";
+  userId: string;
 }
 
 export interface Transaction {
@@ -16,6 +26,7 @@ export interface Transaction {
   categoryId: string;
   date: Date;
   budgetId: string;
+  userId: string;
   isRecurrent?: boolean;
   recurrenceId?: string; // Para vincular transacciones del mismo grupo recurrente
 }
@@ -26,6 +37,7 @@ export interface RecurrentTransaction {
   amount: number;
   description: string;
   categoryId: string;
+  userId: string;
   startDate: Date;
   endDate?: Date; // Si no se especifica, será indefinida
   isActive: boolean;
@@ -43,6 +55,7 @@ export interface MonthlyBudget {
   month: number;
   year: number;
   totalIncome: number;
+  userId: string;
   categories: Category[];
   transactions: Transaction[];
   createdAt: Date;
@@ -54,6 +67,7 @@ export interface BudgetTemplate {
   id: string;
   name: string;
   totalIncome: number;
+  userId: string;
   categories: Category[];
   createdAt: Date;
   updatedAt: Date;

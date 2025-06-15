@@ -13,6 +13,7 @@ export class CreateRecurrentTransactionUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
+    userId,
     type,
     amount,
     description,
@@ -26,6 +27,13 @@ export class CreateRecurrentTransactionUseCase {
       const warnings: string[] = [];
 
       // Validaciones de negocio
+      if (!userId) {
+        return {
+          success: false,
+          error: "UserId es requerido",
+        };
+      }
+
       if (amount <= 0) {
         return {
           success: false,
@@ -90,6 +98,7 @@ export class CreateRecurrentTransactionUseCase {
       // Crear la transacción recurrente
       const recurrentTransaction =
         await this.budgetRepository.createRecurrentTransaction({
+          userId,
           recurrentTransaction: {
             type,
             amount,
@@ -138,6 +147,7 @@ export class CreateRecurrentTransactionUseCase {
       const startYear = recurrentTransaction.startDate.getFullYear();
 
       const templateBudget = await this.budgetRepository.getBudgetByMonth({
+        userId: recurrentTransaction.userId,
         month: startMonth,
         year: startYear,
       });
@@ -185,6 +195,7 @@ export class CreateRecurrentTransactionUseCase {
 
         // Verificar si ya existe presupuesto para este mes
         let targetBudget = await this.budgetRepository.getBudgetByMonth({
+          userId: recurrentTransaction.userId,
           month: targetMonth,
           year: targetYear,
         });
@@ -193,73 +204,47 @@ export class CreateRecurrentTransactionUseCase {
         if (!targetBudget) {
           try {
             targetBudget = await this.budgetRepository.createMonthlyBudget({
+              userId: recurrentTransaction.userId,
               name: `Presupuesto ${targetMonth}/${targetYear}`,
               month: targetMonth,
               year: targetYear,
               totalIncome: templateBudget.totalIncome,
               categories: templateBudget.categories.map((cat) => ({
                 ...cat,
-                id: `${cat.id}_${targetMonth}_${targetYear}`, // Generar nuevo ID
+                id: crypto.randomUUID(),
+                userId: recurrentTransaction.userId,
               })),
             });
-          } catch (createError) {
+          } catch (error) {
             warnings.push(
-              `No se pudo crear presupuesto para ${targetMonth}/${targetYear}: ` +
-                (createError instanceof Error
-                  ? createError.message
-                  : "Error desconocido")
+              `Error al crear presupuesto para ${targetMonth}/${targetYear}: ${
+                error instanceof Error ? error.message : "Error desconocido"
+              }`
             );
             continue;
           }
         }
 
-        // Verificar que la categoría existe en el presupuesto destino
-        const targetCategory = targetBudget.categories.find(
-          (c) => c.name === category.name && c.type === category.type
-        );
-
-        if (!targetCategory) {
-          warnings.push(
-            `La categoría "${category.name}" no existe en el presupuesto de ${targetMonth}/${targetYear}. ` +
-              "La transacción recurrente se omitirá para este mes."
-          );
-          continue;
-        }
-
-        // Verificar si ya existe una transacción recurrente similar
-        const existingRecurrentTransaction = targetBudget.transactions.find(
-          (t) =>
-            t.recurrenceId === recurrentTransaction.id &&
-            t.description === recurrentTransaction.description
-        );
-
-        if (existingRecurrentTransaction) {
-          warnings.push(
-            `Ya existe una transacción recurrente para ${targetMonth}/${targetYear}. Se omitirá.`
-          );
-          continue;
-        }
-
-        // Agregar la transacción al presupuesto
+        // Crear la transacción en el presupuesto objetivo
         try {
           await this.budgetRepository.addTransaction({
+            userId: recurrentTransaction.userId,
             budgetId: targetBudget.id,
             transaction: {
               type: recurrentTransaction.type,
               amount: recurrentTransaction.amount,
               description: recurrentTransaction.description,
-              categoryId: targetCategory.id,
+              categoryId: recurrentTransaction.categoryId,
               date: futureDate,
               isRecurrent: true,
               recurrenceId: recurrentTransaction.id,
             },
           });
-        } catch (addError) {
+        } catch (error) {
           warnings.push(
-            `No se pudo agregar transacción para ${targetMonth}/${targetYear}: ` +
-              (addError instanceof Error
-                ? addError.message
-                : "Error desconocido")
+            `Error al crear transacción para ${targetMonth}/${targetYear}: ${
+              error instanceof Error ? error.message : "Error desconocido"
+            }`
           );
         }
       }

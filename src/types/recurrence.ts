@@ -12,6 +12,7 @@ export const RECURRENCE_INTERVALS: Record<string, RecurrenceInterval> = {
 };
 
 export interface CreateRecurrentTransactionRequest {
+  userId: string;
   type: "income" | "expense";
   amount: number;
   description: string;

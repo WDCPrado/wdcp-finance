@@ -1,10 +1,14 @@
-import { IBudgetRepository } from "../interfaces/budget-repository.interface";
 import { BudgetRepository } from "../repositories/budget.repository";
+import { PrismaBudgetRepository } from "../repositories/prisma-budget.repository";
+import { UserRepository } from "../repositories/user.repository";
+import { IBudgetRepository } from "../interfaces/budget-repository.interface";
+import { IUserRepository } from "../interfaces/user-repository.interface";
+import { PrismaClient } from "@prisma/client";
 
 // Use Cases
 import { CreateBudgetUseCase } from "../use-cases/budget/create-budget.use-case";
-import { AddTransactionUseCase } from "../use-cases/budget/add-transaction.use-case";
 import { GetCurrentBudgetUseCase } from "../use-cases/budget/get-current-budget.use-case";
+import { AddTransactionUseCase } from "../use-cases/budget/add-transaction.use-case";
 import { GetBudgetByMonthUseCase } from "../use-cases/budget/get-budget-by-month.use-case";
 import { DeleteBudgetUseCase } from "../use-cases/budget/delete-budget.use-case";
 import { EditBudgetUseCase } from "../use-cases/budget/edit-budget.use-case";
@@ -12,97 +16,148 @@ import { CreateRecurrentTransactionUseCase } from "../use-cases/budget/create-re
 import { ProcessRecurrentTransactionsUseCase } from "../use-cases/budget/process-recurrent-transactions.use-case";
 import { ManageRecurrentTransactionsUseCase } from "../use-cases/budget/manage-recurrent-transactions.use-case";
 
-export class DIContainer {
-  private static instance: DIContainer;
+// Auth Use Cases
+import { RegisterUserUseCase } from "../use-cases/auth/register-user.use-case";
+import { LoginUserUseCase } from "../use-cases/auth/login-user.use-case";
 
-  // Repositorios
-  private readonly _budgetRepository: IBudgetRepository;
+class DIContainer {
+  // Repositories
+  private _budgetRepository?: IBudgetRepository;
+  private _userRepository?: IUserRepository;
+  private _prisma?: PrismaClient;
 
-  // Casos de uso
-  private readonly _createBudgetUseCase: CreateBudgetUseCase;
-  private readonly _addTransactionUseCase: AddTransactionUseCase;
-  private readonly _getCurrentBudgetUseCase: GetCurrentBudgetUseCase;
-  private readonly _getBudgetByMonthUseCase: GetBudgetByMonthUseCase;
-  private readonly _deleteBudgetUseCase: DeleteBudgetUseCase;
-  private readonly _editBudgetUseCase: EditBudgetUseCase;
-  private readonly _createRecurrentTransactionUseCase: CreateRecurrentTransactionUseCase;
-  private readonly _processRecurrentTransactionsUseCase: ProcessRecurrentTransactionsUseCase;
-  private readonly _manageRecurrentTransactionsUseCase: ManageRecurrentTransactionsUseCase;
+  // Budget Use Cases
+  private _createBudgetUseCase?: CreateBudgetUseCase;
+  private _getCurrentBudgetUseCase?: GetCurrentBudgetUseCase;
+  private _addTransactionUseCase?: AddTransactionUseCase;
+  private _getBudgetByMonthUseCase?: GetBudgetByMonthUseCase;
+  private _deleteBudgetUseCase?: DeleteBudgetUseCase;
+  private _editBudgetUseCase?: EditBudgetUseCase;
+  private _createRecurrentTransactionUseCase?: CreateRecurrentTransactionUseCase;
+  private _processRecurrentTransactionsUseCase?: ProcessRecurrentTransactionsUseCase;
+  private _manageRecurrentTransactionsUseCase?: ManageRecurrentTransactionsUseCase;
 
-  private constructor() {
-    // Inicializar repositorios
-    this._budgetRepository = new BudgetRepository();
+  // Auth Use Cases
+  private _registerUserUseCase?: RegisterUserUseCase;
+  private _loginUserUseCase?: LoginUserUseCase;
 
-    // Inicializar casos de uso con inyección de dependencias
-    this._createBudgetUseCase = new CreateBudgetUseCase(this._budgetRepository);
-    this._addTransactionUseCase = new AddTransactionUseCase(
-      this._budgetRepository
-    );
-    this._getCurrentBudgetUseCase = new GetCurrentBudgetUseCase(
-      this._budgetRepository
-    );
-    this._getBudgetByMonthUseCase = new GetBudgetByMonthUseCase(
-      this._budgetRepository
-    );
-    this._deleteBudgetUseCase = new DeleteBudgetUseCase(this._budgetRepository);
-    this._editBudgetUseCase = new EditBudgetUseCase(this._budgetRepository);
-    this._createRecurrentTransactionUseCase =
-      new CreateRecurrentTransactionUseCase(this._budgetRepository);
-    this._processRecurrentTransactionsUseCase =
-      new ProcessRecurrentTransactionsUseCase(this._budgetRepository);
-    this._manageRecurrentTransactionsUseCase =
-      new ManageRecurrentTransactionsUseCase(this._budgetRepository);
-  }
-
-  public static getInstance(): DIContainer {
-    if (!DIContainer.instance) {
-      DIContainer.instance = new DIContainer();
+  // Prisma client getter
+  get prisma(): PrismaClient {
+    if (!this._prisma) {
+      this._prisma = new PrismaClient();
     }
-    return DIContainer.instance;
+    return this._prisma;
   }
 
-  // Getters para repositorios
-  public get budgetRepository(): IBudgetRepository {
+  // Repository getters
+  get budgetRepository(): IBudgetRepository {
+    if (!this._budgetRepository) {
+      // Use Prisma repository if available, fallback to in-memory
+      this._budgetRepository = process.env.DATABASE_URL
+        ? new PrismaBudgetRepository(this.prisma)
+        : new BudgetRepository();
+    }
     return this._budgetRepository;
   }
 
-  // Getters para casos de uso
-  public get createBudgetUseCase(): CreateBudgetUseCase {
+  get userRepository(): IUserRepository {
+    if (!this._userRepository) {
+      this._userRepository = new UserRepository();
+    }
+    return this._userRepository;
+  }
+
+  // Budget Use Case getters
+  get createBudgetUseCase(): CreateBudgetUseCase {
+    if (!this._createBudgetUseCase) {
+      this._createBudgetUseCase = new CreateBudgetUseCase(
+        this.budgetRepository
+      );
+    }
     return this._createBudgetUseCase;
   }
 
-  public get addTransactionUseCase(): AddTransactionUseCase {
-    return this._addTransactionUseCase;
-  }
-
-  public get getCurrentBudgetUseCase(): GetCurrentBudgetUseCase {
+  get getCurrentBudgetUseCase(): GetCurrentBudgetUseCase {
+    if (!this._getCurrentBudgetUseCase) {
+      this._getCurrentBudgetUseCase = new GetCurrentBudgetUseCase(
+        this.budgetRepository
+      );
+    }
     return this._getCurrentBudgetUseCase;
   }
 
-  public get getBudgetByMonthUseCase(): GetBudgetByMonthUseCase {
+  get addTransactionUseCase(): AddTransactionUseCase {
+    if (!this._addTransactionUseCase) {
+      this._addTransactionUseCase = new AddTransactionUseCase(
+        this.budgetRepository
+      );
+    }
+    return this._addTransactionUseCase;
+  }
+
+  get getBudgetByMonthUseCase(): GetBudgetByMonthUseCase {
+    if (!this._getBudgetByMonthUseCase) {
+      this._getBudgetByMonthUseCase = new GetBudgetByMonthUseCase(
+        this.budgetRepository
+      );
+    }
     return this._getBudgetByMonthUseCase;
   }
 
-  public get deleteBudgetUseCase(): DeleteBudgetUseCase {
+  get deleteBudgetUseCase(): DeleteBudgetUseCase {
+    if (!this._deleteBudgetUseCase) {
+      this._deleteBudgetUseCase = new DeleteBudgetUseCase(
+        this.budgetRepository
+      );
+    }
     return this._deleteBudgetUseCase;
   }
 
-  public get editBudgetUseCase(): EditBudgetUseCase {
+  get editBudgetUseCase(): EditBudgetUseCase {
+    if (!this._editBudgetUseCase) {
+      this._editBudgetUseCase = new EditBudgetUseCase(this.budgetRepository);
+    }
     return this._editBudgetUseCase;
   }
 
-  public get createRecurrentTransactionUseCase(): CreateRecurrentTransactionUseCase {
+  get createRecurrentTransactionUseCase(): CreateRecurrentTransactionUseCase {
+    if (!this._createRecurrentTransactionUseCase) {
+      this._createRecurrentTransactionUseCase =
+        new CreateRecurrentTransactionUseCase(this.budgetRepository);
+    }
     return this._createRecurrentTransactionUseCase;
   }
 
-  public get processRecurrentTransactionsUseCase(): ProcessRecurrentTransactionsUseCase {
+  get processRecurrentTransactionsUseCase(): ProcessRecurrentTransactionsUseCase {
+    if (!this._processRecurrentTransactionsUseCase) {
+      this._processRecurrentTransactionsUseCase =
+        new ProcessRecurrentTransactionsUseCase(this.budgetRepository);
+    }
     return this._processRecurrentTransactionsUseCase;
   }
 
-  public get manageRecurrentTransactionsUseCase(): ManageRecurrentTransactionsUseCase {
+  get manageRecurrentTransactionsUseCase(): ManageRecurrentTransactionsUseCase {
+    if (!this._manageRecurrentTransactionsUseCase) {
+      this._manageRecurrentTransactionsUseCase =
+        new ManageRecurrentTransactionsUseCase(this.budgetRepository);
+    }
     return this._manageRecurrentTransactionsUseCase;
+  }
+
+  // Auth Use Case getters
+  get registerUserUseCase(): RegisterUserUseCase {
+    if (!this._registerUserUseCase) {
+      this._registerUserUseCase = new RegisterUserUseCase(this.userRepository);
+    }
+    return this._registerUserUseCase;
+  }
+
+  get loginUserUseCase(): LoginUserUseCase {
+    if (!this._loginUserUseCase) {
+      this._loginUserUseCase = new LoginUserUseCase(this.userRepository);
+    }
+    return this._loginUserUseCase;
   }
 }
 
-// Exportar instancia singleton
-export const container = DIContainer.getInstance();
+export const container = new DIContainer();

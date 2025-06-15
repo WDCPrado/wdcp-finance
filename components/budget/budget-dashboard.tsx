@@ -35,7 +35,6 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { container } from "@/src/di/container";
 import { useCurrency } from "@/src/hooks/useCurrency";
 import EditBudgetModal from "./edit-budget-modal";
 import {
@@ -106,10 +105,12 @@ export default function BudgetDashboard({
 
   const loadSummary = async () => {
     try {
-      const budgetSummary = await container.budgetRepository.getBudgetSummary({
-        budgetId: budget.id,
-      });
-      setSummary(budgetSummary);
+      const response = await fetch(`/api/budget/summary?budgetId=${budget.id}`);
+      const result = await response.json();
+
+      if (response.ok && result.summary) {
+        setSummary(result.summary);
+      }
     } catch (error) {
       console.error("Error loading budget summary:", error);
     }
@@ -127,16 +128,26 @@ export default function BudgetDashboard({
     date: string;
   }) => {
     try {
-      const result = await container.addTransactionUseCase.execute({
-        budgetId: budget.id,
-        type: transaction.type,
-        amount: transaction.amount,
-        description: transaction.description,
-        categoryId: transaction.categoryId,
-        date: createDateFromInput(transaction.date),
+      const response = await fetch("/api/budget/transaction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          transaction: {
+            type: transaction.type,
+            amount: transaction.amount,
+            description: transaction.description,
+            categoryId: transaction.categoryId,
+            date: createDateFromInput(transaction.date),
+          },
+        }),
       });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok) {
         setShowAddTransaction(false);
         onBudgetUpdated();
         loadSummary();
@@ -169,7 +180,7 @@ export default function BudgetDashboard({
     type: "income" | "expense";
   }) => {
     try {
-      const category: Category = {
+      const category: Omit<Category, "userId"> = {
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
         name: categoryData.name.trim(),
         description: categoryData.description.trim(),
@@ -179,17 +190,31 @@ export default function BudgetDashboard({
         type: categoryData.type,
       };
 
-      const updatedCategories = [...budget.categories, category];
+      const updatedCategories = [...budget.categories, category as Category];
 
-      await container.budgetRepository.updateMonthlyBudget({
-        id: budget.id,
-        updates: { categories: updatedCategories },
+      const response = await fetch("/api/budget/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          categories: updatedCategories,
+        }),
       });
 
-      setShowAddCategory(false);
-      onBudgetUpdated();
-      loadSummary();
-      toast.success("Categoría agregada exitosamente");
+      const result = await response.json();
+
+      if (response.ok) {
+        setShowAddCategory(false);
+        onBudgetUpdated();
+        loadSummary();
+        toast.success("Categoría agregada exitosamente");
+      } else {
+        toast.error("Error al agregar categoría", {
+          description: result.error,
+        });
+      }
     } catch (error) {
       console.error("Error adding category:", error);
       toast.error("Error inesperado", {
@@ -217,9 +242,15 @@ export default function BudgetDashboard({
         c.id === categoryId ? { ...c, budgetAmount: Number(amount) } : c
       );
 
-      await container.budgetRepository.updateMonthlyBudget({
-        id: budget.id,
-        updates: { categories: updatedCategories },
+      await fetch("/api/budget/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          categories: updatedCategories,
+        }),
       });
 
       onBudgetUpdated();
@@ -252,32 +283,28 @@ export default function BudgetDashboard({
 
     try {
       // Crear transacción de ingreso por el monto completo de la categoría
-      const result = await container.addTransactionUseCase.execute({
-        budgetId: budget.id,
-        type: "income",
-        amount: category.budgetAmount,
-        description: `Ingreso completo - ${category.name}`,
-        categoryId: categoryId,
-        date: new Date(),
+      await fetch("/api/budget/transaction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          transaction: {
+            type: "income",
+            amount: category.budgetAmount,
+            description: `Ingreso completo - ${category.name}`,
+            categoryId: categoryId,
+            date: new Date().toISOString(),
+          },
+        }),
       });
 
-      if (result.success) {
-        onBudgetUpdated();
-        loadSummary();
+      onBudgetUpdated();
+      loadSummary();
 
-        // Mostrar mensaje de éxito
-        toast.success("¡Ingreso registrado exitosamente!");
-
-        if (result.warnings && result.warnings.length > 0) {
-          toast.warning("Advertencias", {
-            description: result.warnings.join("\n"),
-          });
-        }
-      } else {
-        toast.error("Error al registrar ingreso", {
-          description: result.error,
-        });
-      }
+      // Mostrar mensaje de éxito
+      toast.success("¡Ingreso registrado exitosamente!");
     } catch (error) {
       console.error("Error completing income payment:", error);
       toast.error("Error inesperado", {
@@ -316,9 +343,15 @@ export default function BudgetDashboard({
         (t) => t.id !== completeIncomeTransaction.id
       );
 
-      await container.budgetRepository.updateMonthlyBudget({
-        id: budget.id,
-        updates: { transactions: updatedTransactions },
+      await fetch("/api/budget/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          transactions: updatedTransactions,
+        }),
       });
 
       onBudgetUpdated();
@@ -344,16 +377,26 @@ export default function BudgetDashboard({
     isComplete: boolean;
   }) => {
     try {
-      const result = await container.addTransactionUseCase.execute({
-        budgetId: budget.id,
-        type: "expense",
-        amount: data.amount,
-        description: data.description.trim(),
-        categoryId: selectedExpenseCategory,
-        date: new Date(),
+      const response = await fetch("/api/budget/transaction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          transaction: {
+            type: "expense",
+            amount: data.amount,
+            description: data.description.trim(),
+            categoryId: selectedExpenseCategory,
+            date: new Date().toISOString(),
+          },
+        }),
       });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok) {
         onBudgetUpdated();
         loadSummary();
         setShowExpenseTransaction(false);
@@ -421,9 +464,15 @@ export default function BudgetDashboard({
           : t
       );
 
-      await container.budgetRepository.updateMonthlyBudget({
-        id: budget.id,
-        updates: { transactions: updatedTransactions },
+      await fetch("/api/budget/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budgetId: budget.id,
+          transactions: updatedTransactions,
+        }),
       });
 
       onBudgetUpdated();
@@ -447,67 +496,26 @@ export default function BudgetDashboard({
     if (!transactionToDelete) return;
 
     try {
-      // Obtener información de la transacción antes de eliminarla
-      const transactionInfo =
-        await container.budgetRepository.getTransactionInfo({
-          budgetId: budget.id,
-          transactionId: transactionToDelete,
-        });
-
-      const updatedTransactions = budget.transactions.filter(
-        (t) => t.id !== transactionToDelete
+      const response = await fetch(
+        `/api/budget/transaction?budgetId=${budget.id}&transactionId=${transactionToDelete}`,
+        {
+          method: "DELETE",
+        }
       );
 
-      await container.budgetRepository.updateMonthlyBudget({
-        id: budget.id,
-        updates: { transactions: updatedTransactions },
-      });
+      const result = await response.json();
 
-      // Si era una transacción recurrente, ofrecer regenerarla
-      if (
-        transactionInfo?.transaction.isRecurrent &&
-        transactionInfo.transaction.recurrenceId
-      ) {
-        toast.success("Transacción eliminada", {
-          description:
-            "Era una transacción recurrente. Se puede regenerar automáticamente.",
-          action: {
-            label: "Regenerar",
-            onClick: async () => {
-              try {
-                const result =
-                  await container.processRecurrentTransactionsUseCase.regenerateDeletedTransaction(
-                    {
-                      recurrenceId: transactionInfo.transaction.recurrenceId!,
-                      targetMonth: budget.month,
-                      targetYear: budget.year,
-                    }
-                  );
-
-                if (result.success) {
-                  onBudgetUpdated();
-                  loadSummary();
-                  toast.success("Transacción regenerada exitosamente");
-                } else {
-                  toast.error("Error al regenerar", {
-                    description: result.error,
-                  });
-                }
-              } catch (error) {
-                console.error("Error regenerating transaction:", error);
-                toast.error("Error al regenerar la transacción");
-              }
-            },
-          },
-        });
-      } else {
+      if (response.ok) {
+        setShowDeleteTransactionDialog(false);
+        setTransactionToDelete("");
+        onBudgetUpdated();
+        loadSummary();
         toast.success("Transacción eliminada exitosamente");
+      } else {
+        toast.error("Error al eliminar transacción", {
+          description: result.error,
+        });
       }
-
-      onBudgetUpdated();
-      loadSummary();
-      setShowDeleteTransactionDialog(false);
-      setTransactionToDelete("");
     } catch (error) {
       console.error("Error deleting transaction:", error);
       toast.error("Error inesperado", {
@@ -520,13 +528,16 @@ export default function BudgetDashboard({
     setIsDeleting(true);
 
     try {
-      const result = await container.deleteBudgetUseCase.execute({
-        budgetId: budget.id,
+      const response = await fetch(`/api/budget/delete?budgetId=${budget.id}`, {
+        method: "DELETE",
       });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok) {
         setShowDeleteConfirm(false);
         onBudgetDeleted?.();
+        toast.success("Presupuesto eliminado exitosamente");
       } else {
         toast.error("Error al eliminar presupuesto", {
           description: result.error,

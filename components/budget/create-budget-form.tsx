@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -8,10 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { ICON_COMPONENTS, IconSelector } from "@/components/ui/icon-selector";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   Select,
   SelectContent,
@@ -19,18 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { IconSelector, ICON_COMPONENTS } from "@/components/ui/icon-selector";
-import { container } from "@/src/di/container";
-import { Category } from "@/src/types/budget";
 import {
   ALL_DEFAULT_CATEGORIES,
   isIncomeCategory,
-  type IconName,
 } from "@/src/constants/categories";
 import { useCurrency } from "@/src/hooks/useCurrency";
-import { Plus, Trash2, DollarSign } from "lucide-react";
+import { Category } from "@/src/types/budget";
+import { DollarSign, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 // Usar ICON_COMPONENTS del IconSelector
+type IconName = keyof typeof ICON_COMPONENTS;
+
+// Crear una versión de Category sin userId para el frontend
+type CategoryFormData = Omit<Category, "userId">;
 
 interface CreateBudgetFormProps {
   onSuccess?: () => void;
@@ -38,7 +40,7 @@ interface CreateBudgetFormProps {
 
 export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
   const [budgetName, setBudgetName] = useState("");
-  const [categories, setCategories] = useState<Category[]>(
+  const [categories, setCategories] = useState<CategoryFormData[]>(
     ALL_DEFAULT_CATEGORIES.map((cat) => ({
       ...cat,
       id: Math.random().toString(36).substring(7),
@@ -46,7 +48,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
     }))
   );
   const [isLoading, setIsLoading] = useState(false);
-  const [customCategoryName, setCustomCategoryName] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
   const [customCategoryType, setCustomCategoryType] = useState<
     "income" | "expense"
   >("expense");
@@ -73,11 +75,11 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
   };
 
   const addCustomCategory = () => {
-    if (!customCategoryName.trim()) return;
+    if (!customCategory.trim()) return;
 
-    const newCategory: Category = {
+    const newCategory: CategoryFormData = {
       id: Math.random().toString(36).substring(7),
-      name: customCategoryName.trim(),
+      name: customCategory.trim(),
       description: "",
       color: customCategoryColor,
       icon: customCategoryIcon,
@@ -86,7 +88,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
     };
 
     setCategories([...categories, newCategory]);
-    setCustomCategoryName("");
+    setCustomCategory("");
     setCustomCategoryType("expense");
     setCustomCategoryIcon("DollarSign");
     setCustomCategoryColor("#6B7280");
@@ -106,15 +108,23 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      const result = await container.createBudgetUseCase.execute({
-        name: budgetName || `Presupuesto ${currentMonth}/${currentYear}`,
-        month: currentMonth,
-        year: currentYear,
-        totalIncome: totalIncome,
-        categories: categories.filter((cat) => cat.budgetAmount > 0),
+      const response = await fetch("/api/budget/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: budgetName || `Presupuesto ${currentMonth}/${currentYear}`,
+          month: currentMonth,
+          year: currentYear,
+          totalIncome: totalIncome,
+          categories: categories.filter((cat) => cat.budgetAmount > 0),
+        }),
       });
 
-      if (!result.success) {
+      const result = await response.json();
+
+      if (!response.ok) {
         setError(result.error || "Error desconocido");
         return;
       }
@@ -128,9 +138,13 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
     }
   };
 
-  // Separar categorías por tipo
-  const incomeCategories = categories.filter((cat) => isIncomeCategory(cat));
-  const expenseCategories = categories.filter((cat) => !isIncomeCategory(cat));
+  // Separar categorías por tipo - usando el name de la categoría para la función
+  const incomeCategories = categories.filter((cat) =>
+    isIncomeCategory(cat.name)
+  );
+  const expenseCategories = categories.filter(
+    (cat) => !isIncomeCategory(cat.name)
+  );
 
   // Calcular totales separados
   const totalIncome = incomeCategories.reduce(
@@ -344,8 +358,8 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
                 <div className="space-y-2">
                   <Label>Nombre</Label>
                   <Input
-                    value={customCategoryName}
-                    onChange={(e) => setCustomCategoryName(e.target.value)}
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
                     placeholder="Nombre de nueva categoría"
                   />
                 </div>
@@ -393,7 +407,7 @@ export default function CreateBudgetForm({ onSuccess }: CreateBudgetFormProps) {
               <Button
                 type="button"
                 onClick={addCustomCategory}
-                disabled={!customCategoryName.trim()}
+                disabled={!customCategory.trim()}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />

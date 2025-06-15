@@ -2,6 +2,7 @@ import { IBudgetRepository } from "../../interfaces/budget-repository.interface"
 import { MonthlyBudget, BudgetSummary } from "../../types/budget";
 
 export interface GetBudgetByMonthRequest {
+  userId: string;
   month: number;
   year: number;
 }
@@ -11,18 +12,25 @@ export interface GetBudgetByMonthResponse {
   budget?: MonthlyBudget;
   summary?: BudgetSummary;
   error?: string;
-  shouldCreateFromPrevious?: boolean;
 }
 
 export class GetBudgetByMonthUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
-  async execute({
-    month,
-    year,
-  }: GetBudgetByMonthRequest): Promise<GetBudgetByMonthResponse> {
+  async execute(
+    request: GetBudgetByMonthRequest
+  ): Promise<GetBudgetByMonthResponse> {
     try {
-      // Validaciones básicas
+      const { userId, month, year } = request;
+
+      // Validar datos de entrada
+      if (!userId || !month || !year) {
+        return {
+          success: false,
+          error: "UserId, mes y año son requeridos",
+        };
+      }
+
       if (month < 1 || month > 12) {
         return {
           success: false,
@@ -30,35 +38,23 @@ export class GetBudgetByMonthUseCase {
         };
       }
 
-      if (year < 2020 || year > 2050) {
-        return {
-          success: false,
-          error: "El año debe estar entre 2020 y 2050",
-        };
-      }
-
-      // Intentar obtener el presupuesto para el mes/año específico
+      // Obtener el presupuesto del mes específico
       const budget = await this.budgetRepository.getBudgetByMonth({
+        userId,
         month,
         year,
       });
 
       if (!budget) {
-        // Verificar si existe algún presupuesto anterior para sugerir creación
-        const allBudgets = await this.budgetRepository.getBudgets();
-
-        const hasPreviousBudgets = allBudgets.some(
-          (b) => b.year < year || (b.year === year && b.month < month)
-        );
-
         return {
           success: true,
-          shouldCreateFromPrevious: hasPreviousBudgets,
+          budget: undefined,
         };
       }
 
       // Obtener resumen del presupuesto
       const summary = await this.budgetRepository.getBudgetSummary({
+        userId,
         budgetId: budget.id,
       });
 

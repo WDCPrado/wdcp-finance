@@ -3,6 +3,7 @@ import { ProcessRecurrenceResponse } from "../../types/recurrence";
 import { RecurrentTransaction, MonthlyBudget } from "../../types/budget";
 
 export interface ProcessRecurrentTransactionsRequest {
+  userId: string;
   targetDate?: Date; // Si no se especifica, usa la fecha actual
   targetMonth?: number; // Mes específico a procesar (1-12)
   targetYear?: number; // Año específico a procesar
@@ -12,15 +13,27 @@ export class ProcessRecurrentTransactionsUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
+    userId,
     targetDate,
     targetMonth,
     targetYear,
-  }: ProcessRecurrentTransactionsRequest = {}): Promise<ProcessRecurrenceResponse> {
+  }: ProcessRecurrentTransactionsRequest): Promise<ProcessRecurrenceResponse> {
     try {
       const warnings: string[] = [];
       let transactionsCreated = 0;
       let budgetsCreated = 0;
       let budgetsUpdated = 0;
+
+      // Validar userId
+      if (!userId) {
+        return {
+          success: false,
+          transactionsCreated: 0,
+          budgetsCreated: 0,
+          budgetsUpdated: 0,
+          error: "UserId es requerido",
+        };
+      }
 
       // Determinar la fecha objetivo
       let processDate: Date;
@@ -38,9 +51,9 @@ export class ProcessRecurrentTransactionsUseCase {
 
       processDate.setHours(0, 0, 0, 0);
 
-      // Obtener todas las transacciones recurrentes activas
+      // Obtener todas las transacciones recurrentes activas del usuario
       const allRecurrentTransactions =
-        await this.budgetRepository.getActiveRecurrentTransactions();
+        await this.budgetRepository.getActiveRecurrentTransactions({ userId });
 
       // Filtrar transacciones que deben ejecutarse para el mes/año específico
       const dueRecurrentTransactions = this.filterTransactionsForMonth({
@@ -69,6 +82,7 @@ export class ProcessRecurrentTransactionsUseCase {
       for (const recurrentTransaction of dueRecurrentTransactions) {
         try {
           const result = await this.processRecurrentTransaction({
+            userId,
             recurrentTransaction,
             targetDate: processDate,
           });
@@ -83,6 +97,7 @@ export class ProcessRecurrentTransactionsUseCase {
 
           // Actualizar la fecha de próxima ejecución
           await this.updateNextExecutionDate({
+            userId,
             recurrentTransaction,
             processedDate: processDate,
           });
@@ -114,9 +129,11 @@ export class ProcessRecurrentTransactionsUseCase {
   }
 
   private async processRecurrentTransaction({
+    userId,
     recurrentTransaction,
     targetDate,
   }: {
+    userId: string;
     recurrentTransaction: RecurrentTransaction;
     targetDate: Date;
   }): Promise<{
@@ -135,6 +152,7 @@ export class ProcessRecurrentTransactionsUseCase {
 
     // Buscar presupuesto para el mes objetivo
     let targetBudget = await this.budgetRepository.getBudgetByMonth({
+      userId,
       month: targetMonth,
       year: targetYear,
     });
@@ -142,6 +160,7 @@ export class ProcessRecurrentTransactionsUseCase {
     // Si no existe presupuesto, buscar un template del mes anterior
     if (!targetBudget) {
       const templateBudget = await this.findTemplateBudget({
+        userId,
         targetMonth,
         targetYear,
       });
@@ -161,13 +180,15 @@ export class ProcessRecurrentTransactionsUseCase {
       // Crear presupuesto basado en el template
       try {
         targetBudget = await this.budgetRepository.createMonthlyBudget({
+          userId,
           name: `Presupuesto ${targetMonth}/${targetYear}`,
           month: targetMonth,
           year: targetYear,
           totalIncome: templateBudget.totalIncome,
           categories: templateBudget.categories.map((cat) => ({
             ...cat,
-            id: `${cat.id}_${targetMonth}_${targetYear}`,
+            id: crypto.randomUUID(),
+            userId,
           })),
         });
         budgetsCreated++;
@@ -192,35 +213,45 @@ export class ProcessRecurrentTransactionsUseCase {
 
     // Buscar la categoría correspondiente en el presupuesto objetivo
     const targetCategory = await this.findOrCreateCategory({
+      userId,
       targetBudget,
       recurrentTransaction,
     });
 
     if (!targetCategory) {
       warnings.push(
-        `No se pudo encontrar o crear la categoría para la transacción "${recurrentTransaction.description}" en ${targetMonth}/${targetYear}`
+        `No se pudo encontrar o crear la categoría para la transacción recurrente "${recurrentTransaction.description}"`
       );
-      return { transactionsCreated, budgetsCreated, budgetsUpdated, warnings };
+      return {
+        transactionsCreated,
+        budgetsCreated,
+        budgetsUpdated,
+        warnings,
+      };
     }
 
-    // Verificar si ya existe una transacción recurrente para este período
+    // Verificar si ya existe la transacción recurrente
     const existingTransaction = targetBudget.transactions.find(
       (t) =>
-        t.recurrenceId === recurrentTransaction.id &&
-        t.date.getMonth() === targetDate.getMonth() &&
-        t.date.getFullYear() === targetDate.getFullYear()
+        t.recurrenceId === recurrentTransaction.id && t.isRecurrent === true
     );
 
     if (existingTransaction) {
       warnings.push(
-        `Ya existe una transacción recurrente para "${recurrentTransaction.description}" en ${targetMonth}/${targetYear}`
+        `Ya existe la transacción recurrente "${recurrentTransaction.description}" para ${targetMonth}/${targetYear}`
       );
-      return { transactionsCreated, budgetsCreated, budgetsUpdated, warnings };
+      return {
+        transactionsCreated,
+        budgetsCreated,
+        budgetsUpdated,
+        warnings,
+      };
     }
 
     // Crear la transacción
     try {
       await this.budgetRepository.addTransaction({
+        userId,
         budgetId: targetBudget.id,
         transaction: {
           type: recurrentTransaction.type,
@@ -235,21 +266,26 @@ export class ProcessRecurrentTransactionsUseCase {
       transactionsCreated++;
     } catch (addError) {
       warnings.push(
-        `No se pudo crear la transacción para "${
-          recurrentTransaction.description
-        }" en ${targetMonth}/${targetYear}: ${
+        `Error al agregar transacción recurrente: ${
           addError instanceof Error ? addError.message : "Error desconocido"
         }`
       );
     }
 
-    return { transactionsCreated, budgetsCreated, budgetsUpdated, warnings };
+    return {
+      transactionsCreated,
+      budgetsCreated,
+      budgetsUpdated,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
   }
 
   private async findTemplateBudget({
+    userId,
     targetMonth,
     targetYear,
   }: {
+    userId: string;
     targetMonth: number;
     targetYear: number;
   }) {
@@ -263,6 +299,7 @@ export class ProcessRecurrentTransactionsUseCase {
     }
 
     let templateBudget = await this.budgetRepository.getBudgetByMonth({
+      userId,
       month: searchMonth,
       year: searchYear,
     });
@@ -279,6 +316,7 @@ export class ProcessRecurrentTransactionsUseCase {
         }
 
         templateBudget = await this.budgetRepository.getBudgetByMonth({
+          userId,
           month: searchMonth,
           year: searchYear,
         });
@@ -291,9 +329,11 @@ export class ProcessRecurrentTransactionsUseCase {
   }
 
   private async findOrCreateCategory({
+    userId,
     targetBudget,
     recurrentTransaction,
   }: {
+    userId: string;
     targetBudget: MonthlyBudget;
     recurrentTransaction: RecurrentTransaction;
   }) {
@@ -305,7 +345,9 @@ export class ProcessRecurrentTransactionsUseCase {
     // Si no se encuentra por ID, buscar por nombre y tipo (para casos donde se creó presupuesto nuevo)
     if (!targetCategory) {
       // Primero necesitamos obtener información de la categoría original
-      const originalBudgets = await this.budgetRepository.getBudgets();
+      const originalBudgets = await this.budgetRepository.getBudgets({
+        userId,
+      });
       let originalCategory = null;
 
       for (const budget of originalBudgets) {
@@ -388,9 +430,11 @@ export class ProcessRecurrentTransactionsUseCase {
   }
 
   private async updateNextExecutionDate({
+    userId,
     recurrentTransaction,
     processedDate,
   }: {
+    userId: string;
     recurrentTransaction: RecurrentTransaction;
     processedDate: Date;
   }) {
@@ -403,6 +447,7 @@ export class ProcessRecurrentTransactionsUseCase {
       !recurrentTransaction.endDate || nextDate <= recurrentTransaction.endDate;
 
     await this.budgetRepository.updateRecurrentTransaction({
+      userId,
       id: recurrentTransaction.id,
       updates: {
         nextExecutionDate: shouldContinue ? nextDate : undefined,
@@ -414,10 +459,12 @@ export class ProcessRecurrentTransactionsUseCase {
 
   // Nuevo método para regenerar transacciones eliminadas
   async regenerateDeletedTransaction({
+    userId,
     recurrenceId,
     targetMonth,
     targetYear,
   }: {
+    userId: string;
     recurrenceId: string;
     targetMonth: number;
     targetYear: number;
@@ -425,7 +472,7 @@ export class ProcessRecurrentTransactionsUseCase {
     try {
       // Obtener todas las transacciones recurrentes y buscar por ID
       const allRecurrentTransactions =
-        await this.budgetRepository.getRecurrentTransactions();
+        await this.budgetRepository.getRecurrentTransactions({ userId });
       const recurrentTransaction = allRecurrentTransactions.find(
         (rt) => rt.id === recurrenceId
       );
@@ -454,6 +501,7 @@ export class ProcessRecurrentTransactionsUseCase {
       // Procesar la transacción para este mes específico
       const targetDate = new Date(targetYear, targetMonth - 1, 1);
       await this.processRecurrentTransaction({
+        userId,
         recurrentTransaction,
         targetDate,
       });
@@ -469,10 +517,12 @@ export class ProcessRecurrentTransactionsUseCase {
 
   // Nuevo método para verificar si una transacción recurrente ya fue ejecutada en un mes
   async isRecurrentTransactionExecutedInMonth({
+    userId,
     recurrenceId,
     targetMonth,
     targetYear,
   }: {
+    userId: string;
     recurrenceId: string;
     targetMonth: number;
     targetYear: number;
@@ -484,6 +534,7 @@ export class ProcessRecurrentTransactionsUseCase {
     try {
       // Buscar presupuesto para el mes objetivo
       const targetBudget = await this.budgetRepository.getBudgetByMonth({
+        userId,
         month: targetMonth,
         year: targetYear,
       });
@@ -520,10 +571,12 @@ export class ProcessRecurrentTransactionsUseCase {
 
   // Nuevo método para desejecutar (eliminar la transacción creada para un mes específico)
   async unexecuteRecurrentTransaction({
+    userId,
     recurrenceId,
     targetMonth,
     targetYear,
   }: {
+    userId: string;
     recurrenceId: string;
     targetMonth: number;
     targetYear: number;
@@ -531,6 +584,7 @@ export class ProcessRecurrentTransactionsUseCase {
     try {
       // Verificar si la transacción fue ejecutada
       const executionStatus = await this.isRecurrentTransactionExecutedInMonth({
+        userId,
         recurrenceId,
         targetMonth,
         targetYear,
@@ -549,6 +603,7 @@ export class ProcessRecurrentTransactionsUseCase {
 
       // Eliminar la transacción
       const deleted = await this.budgetRepository.deleteTransaction({
+        userId,
         budgetId: executionStatus.budgetId,
         transactionId: executionStatus.transactionId,
       });

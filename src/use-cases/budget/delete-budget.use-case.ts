@@ -1,6 +1,7 @@
 import { IBudgetRepository } from "../../interfaces/budget-repository.interface";
 
 export interface DeleteBudgetRequest {
+  userId: string;
   budgetId: string;
 }
 
@@ -13,10 +14,18 @@ export class DeleteBudgetUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
+    userId,
     budgetId,
   }: DeleteBudgetRequest): Promise<DeleteBudgetResponse> {
     try {
       // Validaciones básicas
+      if (!userId) {
+        return {
+          success: false,
+          error: "UserId es requerido",
+        };
+      }
+
       if (!budgetId || budgetId.trim() === "") {
         return {
           success: false,
@@ -24,19 +33,22 @@ export class DeleteBudgetUseCase {
         };
       }
 
-      // Verificar que el presupuesto existe antes de eliminarlo
-      const allBudgets = await this.budgetRepository.getBudgets();
-      const budgetExists = allBudgets.some((budget) => budget.id === budgetId);
+      // Verificar que el presupuesto existe y pertenece al usuario
+      const userBudgets = await this.budgetRepository.getBudgets({ userId });
+      const budgetExists = userBudgets.some((budget) => budget.id === budgetId);
 
       if (!budgetExists) {
         return {
           success: false,
-          error: "El presupuesto no existe",
+          error: "El presupuesto no existe o no tiene permisos para eliminarlo",
         };
       }
 
       // Eliminar el presupuesto
-      const result = await this.budgetRepository.deleteBudget({ id: budgetId });
+      const result = await this.budgetRepository.deleteBudget({
+        userId,
+        id: budgetId,
+      });
 
       if (!result) {
         return {

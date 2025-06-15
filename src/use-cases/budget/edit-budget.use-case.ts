@@ -2,6 +2,7 @@ import { IBudgetRepository } from "../../interfaces/budget-repository.interface"
 import { MonthlyBudget, Category } from "../../types/budget";
 
 export interface EditBudgetRequest {
+  userId: string;
   budgetId: string;
   name?: string;
   totalIncome?: number;
@@ -18,6 +19,7 @@ export class EditBudgetUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
+    userId,
     budgetId,
     name,
     totalIncome,
@@ -25,6 +27,13 @@ export class EditBudgetUseCase {
   }: EditBudgetRequest): Promise<EditBudgetResponse> {
     try {
       // Validaciones básicas
+      if (!userId) {
+        return {
+          success: false,
+          error: "UserId es requerido",
+        };
+      }
+
       if (!budgetId || budgetId.trim() === "") {
         return {
           success: false,
@@ -32,16 +41,16 @@ export class EditBudgetUseCase {
         };
       }
 
-      // Verificar que el presupuesto existe
-      const allBudgets = await this.budgetRepository.getBudgets();
-      const existingBudget = allBudgets.find(
+      // Verificar que el presupuesto existe y pertenece al usuario
+      const userBudgets = await this.budgetRepository.getBudgets({ userId });
+      const existingBudget = userBudgets.find(
         (budget) => budget.id === budgetId
       );
 
       if (!existingBudget) {
         return {
           success: false,
-          error: "El presupuesto no existe",
+          error: "El presupuesto no existe o no tiene permisos para editarlo",
         };
       }
 
@@ -109,6 +118,7 @@ export class EditBudgetUseCase {
 
       // Actualizar el presupuesto
       const updatedBudget = await this.budgetRepository.updateMonthlyBudget({
+        userId,
         id: budgetId,
         updates,
       });

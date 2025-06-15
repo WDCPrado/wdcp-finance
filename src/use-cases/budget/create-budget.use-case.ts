@@ -3,6 +3,7 @@ import { MonthlyBudget, Category } from "../../types/budget";
 import { isIncomeCategory } from "../../constants/categories";
 
 export interface CreateBudgetRequest {
+  userId: string;
   name: string;
   month: number;
   year: number;
@@ -20,6 +21,7 @@ export class CreateBudgetUseCase {
   constructor(private readonly budgetRepository: IBudgetRepository) {}
 
   async execute({
+    userId,
     name,
     month,
     year,
@@ -28,6 +30,13 @@ export class CreateBudgetUseCase {
   }: CreateBudgetRequest): Promise<CreateBudgetResponse> {
     try {
       // Validaciones de negocio
+      if (!userId) {
+        return {
+          success: false,
+          error: "UserId es requerido",
+        };
+      }
+
       if (totalIncome <= 0) {
         return {
           success: false,
@@ -58,8 +67,9 @@ export class CreateBudgetUseCase {
         };
       }
 
-      // Verificar si ya existe un presupuesto para este mes/año
+      // Verificar si ya existe un presupuesto para este mes/año del usuario
       const existingBudget = await this.budgetRepository.getBudgetByMonth({
+        userId,
         month,
         year,
       });
@@ -72,6 +82,7 @@ export class CreateBudgetUseCase {
 
       // Crear el presupuesto
       const budget = await this.budgetRepository.createMonthlyBudget({
+        userId,
         name: name || `Presupuesto ${month}/${year}`,
         month,
         year,

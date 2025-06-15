@@ -1,336 +1,313 @@
-import { useState } from "react";
-import {
-  CreateRecurrentTransactionRequest,
-  ProcessRecurrenceResponse,
-  RECURRENCE_INTERVALS,
-} from "../types/recurrence";
-import { CreateRecurrentTransactionResponse } from "../use-cases/budget/create-recurrent-transaction.use-case";
-import {
-  GetRecurrentTransactionsResponse,
-  UpdateRecurrentTransactionRequest,
-  UpdateRecurrentTransactionResponse,
-  DeleteRecurrentTransactionRequest,
-  DeleteRecurrentTransactionResponse,
-} from "../use-cases/budget/manage-recurrent-transactions.use-case";
-import { container } from "../di/container";
+import { useState, useCallback } from "react";
+import { RecurrentTransaction } from "../types/budget";
+import { CreateRecurrentTransactionRequest } from "../types/recurrence";
 
-export function useRecurrentTransactions() {
+export const useRecurrentTransactions = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Obtener instancias de casos de uso del contenedor DI
-  const createRecurrentTransactionUseCase =
-    container.createRecurrentTransactionUseCase;
-  const processRecurrentTransactionsUseCase =
-    container.processRecurrentTransactionsUseCase;
-  const manageRecurrentTransactionsUseCase =
-    container.manageRecurrentTransactionsUseCase;
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
-  const createRecurrentTransaction = async (
-    request: CreateRecurrentTransactionRequest
-  ): Promise<CreateRecurrentTransactionResponse> => {
+  // Obtener todas las transacciones recurrentes
+  const getAllRecurrentTransactions = useCallback(async (): Promise<
+    RecurrentTransaction[]
+  > => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await createRecurrentTransactionUseCase.execute(request);
+      const response = await fetch("/api/recurrent-transactions");
 
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Error al obtener transacciones recurrentes"
+        );
       }
 
-      return response;
+      const data = await response.json();
+      return data.recurrentTransactions || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
+      throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const processRecurrentTransactions = async (params?: {
-    targetDate?: Date;
-    targetMonth?: number;
-    targetYear?: number;
-  }): Promise<ProcessRecurrenceResponse> => {
+  // Obtener transacciones recurrentes activas
+  const getActiveRecurrentTransactions = useCallback(async (): Promise<
+    RecurrentTransaction[]
+  > => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await processRecurrentTransactionsUseCase.execute({
-        targetDate: params?.targetDate,
-        targetMonth: params?.targetMonth,
-        targetYear: params?.targetYear,
-      });
+      const response = await fetch("/api/recurrent-transactions?active=true");
 
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error ||
+            "Error al obtener transacciones recurrentes activas"
+        );
       }
 
-      return response;
+      const data = await response.json();
+      return data.recurrentTransactions || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
-      return {
-        success: false,
-        transactionsCreated: 0,
-        budgetsCreated: 0,
-        budgetsUpdated: 0,
-        error: errorMessage,
-      };
+      throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const processIndividualRecurrentTransaction = async (params: {
-    recurrenceId: string;
-    targetMonth: number;
-    targetYear: number;
-  }): Promise<{ success: boolean; error?: string }> => {
-    setLoading(true);
-    setError(null);
+  // Crear transacción recurrente
+  const createRecurrentTransaction = useCallback(
+    async (
+      recurrentTransaction: Omit<CreateRecurrentTransactionRequest, "userId">
+    ): Promise<RecurrentTransaction> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response =
-        await processRecurrentTransactionsUseCase.regenerateDeletedTransaction({
-          recurrenceId: params.recurrenceId,
-          targetMonth: params.targetMonth,
-          targetYear: params.targetYear,
+      try {
+        const response = await fetch("/api/recurrent-transactions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(recurrentTransaction),
         });
 
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
-      }
-
-      return response;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error desconocido";
-      setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkRecurrentTransactionExecution = async (params: {
-    recurrenceId: string;
-    targetMonth: number;
-    targetYear: number;
-  }): Promise<{
-    executed: boolean;
-    transactionId?: string;
-    budgetId?: string;
-  }> => {
-    try {
-      const response =
-        await processRecurrentTransactionsUseCase.isRecurrentTransactionExecutedInMonth(
-          {
-            recurrenceId: params.recurrenceId,
-            targetMonth: params.targetMonth,
-            targetYear: params.targetYear,
-          }
-        );
-
-      return response;
-    } catch (err) {
-      console.error("Error checking recurrent transaction execution:", err);
-      return { executed: false };
-    }
-  };
-
-  const unexecuteRecurrentTransaction = async (params: {
-    recurrenceId: string;
-    targetMonth: number;
-    targetYear: number;
-  }): Promise<{ success: boolean; error?: string }> => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response =
-        await processRecurrentTransactionsUseCase.unexecuteRecurrentTransaction(
-          {
-            recurrenceId: params.recurrenceId,
-            targetMonth: params.targetMonth,
-            targetYear: params.targetYear,
-          }
-        );
-
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
-      }
-
-      return response;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error desconocido";
-      setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getAllRecurrentTransactions =
-    async (): Promise<GetRecurrentTransactionsResponse> => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response =
-          await manageRecurrentTransactionsUseCase.getAllRecurrentTransactions();
-
-        if (!response.success) {
-          setError(response.error || "Error desconocido");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Error al crear transacción recurrente"
+          );
         }
 
-        return response;
+        const data = await response.json();
+        return data.recurrentTransaction;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Error desconocido";
         setError(errorMessage);
-        return {
-          success: false,
-          recurrentTransactions: [],
-          error: errorMessage,
-        };
+        throw err;
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
-  const getActiveRecurrentTransactions =
-    async (): Promise<GetRecurrentTransactionsResponse> => {
+  // Actualizar transacción recurrente
+  const updateRecurrentTransaction = useCallback(
+    async (
+      id: string,
+      updates: {
+        amount?: number;
+        description?: string;
+        endDate?: Date;
+        isActive?: boolean;
+        intervalValue?: number;
+      }
+    ): Promise<RecurrentTransaction> => {
       setLoading(true);
       setError(null);
 
       try {
-        const response =
-          await manageRecurrentTransactionsUseCase.getActiveRecurrentTransactions();
+        const response = await fetch(`/api/recurrent-transactions/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updates),
+        });
 
-        if (!response.success) {
-          setError(response.error || "Error desconocido");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Error al actualizar transacción recurrente"
+          );
         }
 
-        return response;
+        const data = await response.json();
+        return data.recurrentTransaction;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Error desconocido";
         setError(errorMessage);
-        return {
-          success: false,
-          recurrentTransactions: [],
-          error: errorMessage,
-        };
+        throw err;
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
-  const updateRecurrentTransaction = async (
-    request: UpdateRecurrentTransactionRequest
-  ): Promise<UpdateRecurrentTransactionResponse> => {
-    setLoading(true);
-    setError(null);
+  // Eliminar transacción recurrente
+  const deleteRecurrentTransaction = useCallback(
+    async (
+      id: string,
+      deleteFutureTransactions: boolean = false
+    ): Promise<{ deletedTransactionsCount: number }> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response =
-        await manageRecurrentTransactionsUseCase.updateRecurrentTransaction(
-          request
-        );
+      try {
+        const response = await fetch(`/api/recurrent-transactions/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ deleteFutureTransactions }),
+        });
 
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Error al eliminar transacción recurrente"
+          );
+        }
+
+        const data = await response.json();
+        return { deletedTransactionsCount: data.deletedTransactionsCount };
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
       }
+    },
+    []
+  );
 
-      return response;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error desconocido";
-      setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Procesar transacciones recurrentes
+  const processRecurrentTransactions = useCallback(
+    async (params?: {
+      targetDate?: Date;
+      targetMonth?: number;
+      targetYear?: number;
+    }): Promise<{
+      transactionsCreated: number;
+      budgetsCreated: number;
+      budgetsUpdated: number;
+      warnings?: string[];
+    }> => {
+      setLoading(true);
+      setError(null);
 
-  const deleteRecurrentTransaction = async (
-    request: DeleteRecurrentTransactionRequest
-  ): Promise<DeleteRecurrentTransactionResponse> => {
-    setLoading(true);
-    setError(null);
+      try {
+        const response = await fetch("/api/recurrent-transactions/process", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(params || {}),
+        });
 
-    try {
-      const response =
-        await manageRecurrentTransactionsUseCase.deleteRecurrentTransaction(
-          request
-        );
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Error al procesar transacciones recurrentes"
+          );
+        }
 
-      if (!response.success) {
-        setError(response.error || "Error desconocido");
+        const data = await response.json();
+        return {
+          transactionsCreated: data.transactionsCreated,
+          budgetsCreated: data.budgetsCreated,
+          budgetsUpdated: data.budgetsUpdated,
+          warnings: data.warnings,
+        };
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
       }
+    },
+    []
+  );
 
-      return response;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error desconocido";
-      setError(errorMessage);
-      return {
-        success: false,
-        deletedTransactionsCount: 0,
-        error: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Regenerar transacción eliminada
+  const regenerateDeletedTransaction = useCallback(
+    async (
+      recurrenceId: string,
+      targetMonth: number,
+      targetYear: number
+    ): Promise<void> => {
+      setLoading(true);
+      setError(null);
 
-  // Utilidades para intervalos de recurrencia
-  const getAvailableIntervals = () => {
-    return Object.values(RECURRENCE_INTERVALS);
-  };
+      try {
+        const response = await fetch("/api/recurrent-transactions/regenerate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recurrenceId,
+            targetMonth,
+            targetYear,
+          }),
+        });
 
-  const clearError = () => {
-    setError(null);
-  };
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Error al regenerar transacción");
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  // Pausar transacción recurrente
+  const pauseRecurrentTransaction = useCallback(
+    async (id: string): Promise<RecurrentTransaction> => {
+      return updateRecurrentTransaction(id, { isActive: false });
+    },
+    [updateRecurrentTransaction]
+  );
+
+  // Reanudar transacción recurrente
+  const resumeRecurrentTransaction = useCallback(
+    async (id: string): Promise<RecurrentTransaction> => {
+      return updateRecurrentTransaction(id, { isActive: true });
+    },
+    [updateRecurrentTransaction]
+  );
 
   return {
-    // Estado
     loading,
     error,
-
-    // Acciones principales
-    createRecurrentTransaction,
-    processRecurrentTransactions,
-    processIndividualRecurrentTransaction,
+    clearError,
     getAllRecurrentTransactions,
     getActiveRecurrentTransactions,
+    createRecurrentTransaction,
     updateRecurrentTransaction,
     deleteRecurrentTransaction,
-
-    // Acciones de conveniencia
-    checkRecurrentTransactionExecution,
-    unexecuteRecurrentTransaction,
-
-    // Utilidades
-    getAvailableIntervals,
-    clearError,
+    processRecurrentTransactions,
+    regenerateDeletedTransaction,
+    pauseRecurrentTransaction,
+    resumeRecurrentTransaction,
   };
-}
+};
