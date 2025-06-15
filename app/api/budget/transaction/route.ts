@@ -44,6 +44,52 @@ export const POST = withAuth(async (user, request: NextRequest) => {
   }
 });
 
+export const PUT = withAuth(async (user, request: NextRequest) => {
+  try {
+    const body = await request.json();
+    const { budgetId, transactionId, updates } = body;
+
+    // Validaciones básicas
+    if (!budgetId || !transactionId || !updates) {
+      return NextResponse.json(
+        { error: "BudgetId, transactionId y updates son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Convertir fecha si viene como string
+    if (updates.date && typeof updates.date === "string") {
+      updates.date = new Date(updates.date);
+    }
+
+    const updateTransactionUseCase = container.updateTransactionUseCase;
+    const result = await updateTransactionUseCase.execute({
+      userId: user.userId,
+      budgetId,
+      transactionId,
+      updates,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || "Error al actualizar la transacción" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      transaction: result.transaction,
+    });
+  } catch (error) {
+    console.error("Error en PUT /api/budget/transaction:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+});
+
 export const DELETE = withAuth(async (user, request: NextRequest) => {
   try {
     const { budgetId, transactionId } = getQueryParams(request, [

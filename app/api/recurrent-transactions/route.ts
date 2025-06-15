@@ -25,10 +25,9 @@ export const GET = withAuth(async (user) => {
 
 export const POST = withAuth(async (user, request: NextRequest) => {
   try {
-    const body = await request.json();
-    const { recurrentTransaction } = body;
+    const recurrentTransaction = await request.json();
 
-    if (!recurrentTransaction) {
+    if (!recurrentTransaction || typeof recurrentTransaction !== "object") {
       return NextResponse.json(
         { error: "Datos de transacción recurrente son requeridos" },
         { status: 400 }

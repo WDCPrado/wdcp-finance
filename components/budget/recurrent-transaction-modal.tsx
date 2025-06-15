@@ -190,34 +190,24 @@ export default function RecurrentTransactionModal({
 
       if (editingTransaction) {
         // Actualizar transacción existente
-        const result = await updateRecurrentTransaction({
-          id: editingTransaction.id,
-          updates: {
-            amount: formData.amount,
-            description: formData.description.trim(),
-            endDate:
-              hasEndDate && formData.endDate
-                ? createDateFromInput(formData.endDate)
-                : undefined,
-            intervalValue: interval.months,
-          },
+        await updateRecurrentTransaction(editingTransaction.id, {
+          amount: formData.amount,
+          description: formData.description.trim(),
+          endDate:
+            hasEndDate && formData.endDate
+              ? createDateFromInput(formData.endDate)
+              : undefined,
+          intervalValue: interval.months,
         });
 
-        if (result.success) {
-          toast.success("Éxito", {
-            description: "Transacción recurrente actualizada correctamente",
-          });
-          onSuccess?.();
-          onClose();
-        } else {
-          toast.error("Error", {
-            description:
-              result.error || "Error al actualizar transacción recurrente",
-          });
-        }
+        toast.success("Éxito", {
+          description: "Transacción recurrente actualizada correctamente",
+        });
+        onSuccess?.();
+        onClose();
       } else {
         // Crear nueva transacción recurrente
-        const result = await createRecurrentTransaction({
+        await createRecurrentTransaction({
           type: formData.type,
           amount: formData.amount,
           description: formData.description.trim(),
@@ -231,25 +221,13 @@ export default function RecurrentTransactionModal({
           createFutureMonths: formData.createFutureMonths,
         });
 
-        if (result.success) {
-          toast.success("Éxito", {
-            description: "Transacción recurrente creada correctamente",
-          });
+        // Si llegamos aquí, la creación fue exitosa
+        toast.success("Éxito", {
+          description: "Transacción recurrente creada correctamente",
+        });
 
-          if (result.warnings && result.warnings.length > 0) {
-            toast.warning("Advertencias", {
-              description: result.warnings.join("\n"),
-            });
-          }
-
-          onSuccess?.();
-          onClose();
-        } else {
-          toast.error("Error", {
-            description:
-              result.error || "Error al crear transacción recurrente",
-          });
-        }
+        onSuccess?.();
+        onClose();
       }
     } catch (err) {
       console.error("Error in form submission:", err);

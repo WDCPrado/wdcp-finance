@@ -83,7 +83,7 @@ export default function BudgetDashboard({
     id: string;
     amount: number;
     description: string;
-    date: string;
+    date: string | Date;
     categoryId: string;
     type: "income" | "expense";
   } | null>(null);
@@ -453,32 +453,34 @@ export default function BudgetDashboard({
     if (!editingTransaction) return;
 
     try {
-      const updatedTransactions = budget.transactions.map((t) =>
-        t.id === editingTransaction.id
-          ? {
-              ...t,
-              amount: data.amount,
-              description: data.description.trim(),
-              date: createDateFromInput(data.date),
-            }
-          : t
-      );
-
-      await fetch("/api/budget/update", {
+      const response = await fetch("/api/budget/transaction", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           budgetId: budget.id,
-          transactions: updatedTransactions,
+          transactionId: editingTransaction.id,
+          updates: {
+            amount: data.amount,
+            description: data.description.trim(),
+            date: data.date,
+          },
         }),
       });
 
-      onBudgetUpdated();
-      loadSummary();
-      setEditingTransaction(null);
-      toast.success("Transacción actualizada exitosamente");
+      const result = await response.json();
+
+      if (response.ok) {
+        onBudgetUpdated();
+        loadSummary();
+        setEditingTransaction(null);
+        toast.success("Transacción actualizada exitosamente");
+      } else {
+        toast.error("Error al actualizar transacción", {
+          description: result.error,
+        });
+      }
     } catch (error) {
       console.error("Error updating transaction:", error);
       toast.error("Error inesperado", {

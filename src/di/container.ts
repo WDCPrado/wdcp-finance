@@ -12,6 +12,7 @@ import { AddTransactionUseCase } from "../use-cases/budget/add-transaction.use-c
 import { GetBudgetByMonthUseCase } from "../use-cases/budget/get-budget-by-month.use-case";
 import { DeleteBudgetUseCase } from "../use-cases/budget/delete-budget.use-case";
 import { EditBudgetUseCase } from "../use-cases/budget/edit-budget.use-case";
+import { UpdateTransactionUseCase } from "../use-cases/budget/update-transaction.use-case";
 import { CreateRecurrentTransactionUseCase } from "../use-cases/budget/create-recurrent-transaction.use-case";
 import { ProcessRecurrentTransactionsUseCase } from "../use-cases/budget/process-recurrent-transactions.use-case";
 import { ManageRecurrentTransactionsUseCase } from "../use-cases/budget/manage-recurrent-transactions.use-case";
@@ -30,6 +31,7 @@ class DIContainer {
   private _createBudgetUseCase?: CreateBudgetUseCase;
   private _getCurrentBudgetUseCase?: GetCurrentBudgetUseCase;
   private _addTransactionUseCase?: AddTransactionUseCase;
+  private _updateTransactionUseCase?: UpdateTransactionUseCase;
   private _getBudgetByMonthUseCase?: GetBudgetByMonthUseCase;
   private _deleteBudgetUseCase?: DeleteBudgetUseCase;
   private _editBudgetUseCase?: EditBudgetUseCase;
@@ -93,6 +95,15 @@ class DIContainer {
       );
     }
     return this._addTransactionUseCase;
+  }
+
+  get updateTransactionUseCase(): UpdateTransactionUseCase {
+    if (!this._updateTransactionUseCase) {
+      this._updateTransactionUseCase = new UpdateTransactionUseCase(
+        this.budgetRepository
+      );
+    }
+    return this._updateTransactionUseCase;
   }
 
   get getBudgetByMonthUseCase(): GetBudgetByMonthUseCase {
